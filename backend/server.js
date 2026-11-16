@@ -110,10 +110,11 @@ app.get('/checkout', customerOnly, wrap(async (req, res) => {
 app.post('/orders', customerOnly, csrf, wrap(async (req, res) => {
   const profile = await customers.findOne({ _id: res.locals.customer.sub });
   const address = profile?.addresses?.find(a => a.address_id === req.body.address_id);
-  if (!isCompleteAddress(address)) return errorPage(res, 'Complete delivery address required', 'Save and select an address with a state and six-digit PIN code before placing an order.', 400);
+  if (!isCompleteAddress(address)) return errorPage(res, 'Complete delivery address required', 'Save and select an address with a city, state and six-digit PIN code before placing an order.', 400);
   const customer = { name: address.name, email: res.locals.customer.email, phone: address.phone,
     address_line1: address.address_line1, address_line2: address.address_line2,
-    state: address.state, pincode: address.pincode, address: formatAddress(address) };
+    landmark: address.landmark, city: address.city, state: address.state,
+    pincode: address.pincode, address: formatAddress(address) };
   let submitted;
   try { submitted = JSON.parse(req.body.items || '[]'); } catch { return res.sendStatus(400); }
   if (!Array.isArray(submitted) || !submitted.length || submitted.length > 50) return res.sendStatus(400);
@@ -141,7 +142,8 @@ app.post('/orders', customerOnly, csrf, wrap(async (req, res) => {
       const subtotal = items.reduce((n, item) => n + item.unit_price_paise * item.quantity, 0);
       await orders.insertOne({ id: orderId, customer_sub: res.locals.customer.sub, customer_name: customer.name, email: customer.email, phone: customer.phone,
         address: customer.address, address_line1: customer.address_line1, address_line2: customer.address_line2,
-        state: customer.state, pincode: customer.pincode, subtotal_paise: subtotal, status: 'new', payment_method: 'cash_on_delivery', created_at: now(), items }, { session: transaction });
+        landmark: customer.landmark, city: customer.city, state: customer.state, pincode: customer.pincode,
+        subtotal_paise: subtotal, status: 'new', payment_method: 'cash_on_delivery', created_at: now(), items }, { session: transaction });
       for (const p of selected) {
         const qty = quantities.get(p.id);
         const result = await products.updateOne({ id: p.id, active: 1, stock: { $gte: qty }, version: p.version }, { $inc: { stock: -qty, version: 1, units: qty, sales_revenue: qty * p.price_paise } }, { session: transaction });

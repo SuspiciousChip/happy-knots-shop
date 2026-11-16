@@ -35,7 +35,7 @@
     <p>Save up to five delivery addresses to choose from at checkout.</p>
     {% for a in profile.addresses %}
     <article class="saved-address">
-      <div><h3>{{ a.label }}</h3><p>{{ a.name }}<br>{{ a.phone }}</p>{% if a.address_line1 %}<p class="address-lines">{{ a.address_line1 }}{% if a.address_line2 %}<br>{{ a.address_line2 }}{% endif %}<br>{{ a.state }} – {{ a.pincode }}</p>{% else %}<p class="address-lines">{{ a.address }}</p><p class="address-warning">This older address needs a state and PIN code before checkout. Remove it and add it again below.</p>{% endif %}</div>
+      <div><h3>{{ a.label }}</h3><p>{{ a.name }}<br>{{ a.phone }}</p>{% if a.city %}<p class="address-lines">{{ a.address_line1 }}{% if a.address_line2 %}<br>{{ a.address_line2 }}{% endif %}{% if a.landmark %}<br>Landmark: {{ a.landmark }}{% endif %}<br>{{ a.city }}, {{ a.state }} – {{ a.pincode }}</p>{% else %}<p class="address-lines">{{ a.address }}</p><p class="address-warning">This older address needs complete delivery details before checkout. Remove it and add it again below.</p>{% endif %}</div>
       <form action="/account/addresses/{{ a.address_id }}/delete" method="post">
         <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ profile.version }}">
         <button class="text-button" aria-label="Remove {{ a.label }} address">Remove</button>
@@ -50,7 +50,9 @@
       <label>Full name<input name="name" required maxlength="120" autocomplete="shipping name"></label>
       <label>Phone<input name="phone" type="tel" required maxlength="50" autocomplete="shipping tel"></label>
       <label class="full-width">Address line 1<input name="address_line1" required maxlength="120" autocomplete="shipping address-line1" placeholder="House or flat number, building, street"></label>
-      <label class="full-width">Address line 2 <span class="optional">(optional)</span><input name="address_line2" maxlength="120" autocomplete="shipping address-line2" placeholder="Area, landmark, city or district"></label>
+      <label class="full-width">Address line 2 <span class="optional">(optional)</span><input name="address_line2" maxlength="120" autocomplete="shipping address-line2" placeholder="Area, locality or extra directions"></label>
+      <label>City or town<input name="city" required maxlength="80" autocomplete="shipping address-level2" placeholder="City or town"></label>
+      <label>Landmark <span class="optional">(optional)</span><input name="landmark" maxlength="120" placeholder="Nearby landmark for delivery"></label>
       <label>State or Union Territory<select name="state" required autocomplete="shipping address-level1"><option value="">Select a state or UT</option>{% for state in states %}<option value="{{ state }}">{{ state }}</option>{% endfor %}</select></label>
       <label>PIN code<input name="pincode" required inputmode="numeric" pattern="[1-9][0-9]{5}" minlength="6" maxlength="6" autocomplete="shipping postal-code" placeholder="6-digit PIN code"></label>
       <button class="button">Save address</button>

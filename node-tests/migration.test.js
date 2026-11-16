@@ -42,5 +42,7 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.match(env.render('product.html', { ...base, product: { id: 1, name: 'Example', price_paise: 200, tags: [], stock: 1 } }), /Add to bag/);
   assert.match(env.render('checkout.html', { ...base, checkout_token: 'token' }), /Delivery address/);
   assert.match(env.render('account.html', base), /name="pincode"/);
+  assert.match(env.render('account.html', base), /name="city"/);
+  assert.match(env.render('account.html', base), /name="landmark"/);
   assert.match(env.render('account.html', base), /Select a state or UT/);
 });

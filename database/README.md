@@ -5,8 +5,8 @@ The active database is MongoDB Atlas, named by `MONGODB_DB` (default `happy_knot
 | Collection | Contents |
 |---|---|
 | `products` | Catalog, stock, version, tags, and lifetime sales |
-| `customers` | Cognito subject (`_id`), verified email, saved delivery addresses (two address lines, state or Union Territory, six-digit PIN code) |
-| `orders` | Customer subject, delivery snapshot including address lines, state and PIN code; immutable line items; status |
+| `customers` | Cognito subject (`_id`), verified email, saved delivery addresses (two address lines, city, optional landmark, state or Union Territory, six-digit PIN code) |
+| `orders` | Customer subject, delivery snapshot including address lines, city, landmark, state and PIN code; immutable line items; status |
 | `sessions` | Expiring server-side customer sessions and short-lived OAuth state |
 | `checkout_receipts` | Duplicate-checkout guard |
 | `stats`, `counters`, `customer_totals` | Shop totals and numeric IDs |
@@ -18,4 +18,4 @@ The separate admin portal should write the same `products` collection. Each acti
 
 The old DynamoDB-to-Atlas importer completed on 16 November 2026. Do not rerun it against the populated Atlas database. The old table remains for rollback.
 
-New delivery addresses require address line 1, a selected Indian state or Union Territory, and a six-digit PIN code. Address line 2 is optional. Older saved addresses remain visible in the account but must be replaced before checkout.
+New delivery addresses require address line 1, city, a selected Indian state or Union Territory, and a six-digit PIN code. Address line 2 and landmark are optional. Older saved addresses remain visible in the account but must be replaced before checkout.
