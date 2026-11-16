@@ -27,7 +27,7 @@
     </div>
     {% if next_cursor %}<a class="button secondary" href="/account?before={{ next_cursor }}#orders">Older orders</a>{% endif %}
     {% else %}
-    <div class="account-empty"><h3>Your handmade favourites start here.</h3><p>Orders you place while signed in will appear here. Earlier guest orders stay separate.</p><a class="button" href="/">Explore the collection</a></div>
+    <div class="account-empty"><h3>Your handmade favourites start here.</h3><p>Orders you place while signed in will appear here. Earlier guest orders stay separate.</p><a class="button" href="/shop">Explore the collection</a></div>
     {% endif %}
   </section>
   <section id="addresses" class="account-section" aria-labelledby="addresses-title">
@@ -41,9 +41,9 @@
         <button class="text-button" aria-label="Remove {{ a.label }} address">Remove</button>
       </form>
     </article>
-    {% else %}<p class="account-muted">No saved addresses yet. Add one below, or enter your details during checkout.</p>{% endfor %}
+    {% else %}<p class="account-muted">No saved addresses yet. Add one below to use at checkout.</p>{% endfor %}
     {% if profile.addresses|length < 5 %}
-    <form class="address-form" action="/save_address" method="post">
+    <form class="address-form" action="/account/addresses" method="post">
       <h3>Add a delivery address</h3>
       <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ profile.version }}">
       <label>Address label<input name="label" placeholder="For example, Home" required maxlength="40" autocomplete="off"></label>

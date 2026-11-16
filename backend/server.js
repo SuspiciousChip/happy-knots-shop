@@ -8,6 +8,7 @@ import cookieParser from 'cookie-parser';
 import nunjucks from 'nunjucks';
 import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
+import * as oidc from 'openid-client';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(root, '..');
@@ -40,11 +41,13 @@ const stats = database.collection('stats');
 const counters = database.collection('counters');
 const receipts = database.collection('checkout_receipts');
 const sessions = database.collection('sessions');
+const customers = database.collection('customers');
 const categories = database.collection('customer_totals');
 const env = nunjucks.configure(path.join(projectRoot, 'frontend', 'templates'), { autoescape: true, noCache: process.env.NODE_ENV !== 'production' });
-const render = (res, name, data = {}) => res.send(env.render(name, { csrf: res.locals.csrf, ...data }));
+const render = (res, name, data = {}) => res.send(env.render(name, { csrf: res.locals.csrf, customer: res.locals.customer, ...data }));
 env.addFilter('money', n => (Number(n || 0) / 100).toFixed(2));
 env.addFilter('json_safe', x => new nunjucks.runtime.SafeString(JSON.stringify(x).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')));
+env.addFilter('urlencode', x => encodeURIComponent(x));
 app.use('/static', express.static(path.join(projectRoot, 'frontend', 'static'), { maxAge: '1h' }));
 app.use(express.urlencoded({ extended: false, limit: '128kb' }));
 app.use(cookieParser());
@@ -62,15 +65,16 @@ app.use(async (req, res, next) => {
     let sid = unsign(req.cookies.hk_session);
     let row = sid && await sessions.findOne({ _id: digest(sid), expires_at: { $gt: new Date() } });
     if (!row) {
-      sid = random(); row = { _id: digest(sid), csrf: random(), owner: false, expires_at: new Date(Date.now() + 30 * 86400000) };
+      sid = random(); row = { _id: digest(sid), csrf: random(), expires_at: new Date(Date.now() + 30 * 86400000) };
       await sessions.insertOne(row);
       res.cookie('hk_session', sign(sid), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 30 * 86400000 });
     }
     req.sid = sid; req.login = row; res.locals.csrf = row.csrf;
+    res.locals.customer = row.customer && row.auth_expires_at > Date.now() ? row.customer : null;
     next();
   } catch (error) { next(error); }
 });
-const protect = (req, res, next) => req.login.owner ? next() : res.redirect('/owner/login');
+const customerOnly = (req, res, next) => res.locals.customer ? next() : res.redirect('/account/login?next=' + encodeURIComponent(req.originalUrl));
 const csrf = (req, res, next) => equal(req.body.csrf, req.login.csrf) ? next() : res.sendStatus(400);
 const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res)).catch(next);
 const now = () => new Date().toISOString();
@@ -80,22 +84,33 @@ async function nextId(name, session) {
   return result.value;
 }
 async function catalog(activeOnly = false) { return products.find(activeOnly ? { active: 1 } : {}).sort({ id: -1 }).toArray(); }
-function productInput(body, active) {
-  if (body.price == null || String(body.price).trim() === '' || body.stock == null || String(body.stock).trim() === '') return null;
-  const price = Number(body.price), stock = Number(body.stock);
-  if (!Number.isFinite(price) || !Number.isSafeInteger(Math.round(price * 100)) || price < 0 || !Number.isSafeInteger(stock) || stock < 0 || stock > 1e9) return null;
-  const name = String(body.name || '').trim(), image = String(body.image || '').trim();
-  if (!name || name.length > 120 || image.length > 2048 || (image && !image.startsWith('/static/assets/') && !image.startsWith('https://'))) return null;
-  return { name, image, price_paise: Math.round(price * 100), stock, active, category: String(body.category || 'Other').slice(0, 60), description: String(body.description || '').slice(0, 1000) };
-}
+const tagNames = ['Personal Accessories & Clothing', 'Door Hangings', 'Wall Hangings', 'Home Decor'];
+const tagsFor = p => Array.isArray(p.tags) ? p.tags.filter(t => tagNames.includes(t)) : tagNames.includes(p.category) ? [p.category] : [];
+const publicProduct = p => ({ id: p.id, name: p.name, tags: tagsFor(p), description: p.description, price_paise: p.price_paise, image: p.image, stock: p.stock });
 app.get('/', wrap(async (req, res) => {
-  const listing = await catalog(true);
-  const publicFields = listing.map(({ id, name, category, description, price_paise, image, stock }) => ({ id, name, category, description, price_paise, image, stock }));
-  render(res, 'shop.html', { products: listing, product_json: publicFields, checkout_token: sign(random()) });
+  const listing = (await catalog(true)).slice(0, 6);
+  render(res, 'shop.html', { products: listing.map(publicProduct), product_json: (await catalog(true)).map(publicProduct) });
 }));
-app.post('/orders', csrf, wrap(async (req, res) => {
-  const customer = Object.fromEntries(['name','email','phone','address'].map(k => [k, String(req.body[k] || '').trim()]));
-  if (Object.values(customer).some(v => !v || v.length > 500) || !customer.email.includes('@')) return res.sendStatus(400);
+app.get('/shop', wrap(async (req, res) => {
+  const listing = (await catalog(true)).map(publicProduct);
+  const tag = tagNames.includes(req.query.category) ? req.query.category : null;
+  render(res, 'catalog.html', { products: tag ? listing.filter(p => p.tags.includes(tag)) : listing, product_json: listing, tags: tagNames, selected_tag: tag });
+}));
+app.get('/products/:id', wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  const product = Number.isSafeInteger(id) ? await products.findOne({ id, active: 1 }) : null;
+  if (!product) return res.sendStatus(404);
+  render(res, 'product.html', { product: publicProduct(product), product_json: (await catalog(true)).map(publicProduct) });
+}));
+app.get('/checkout', customerOnly, wrap(async (req, res) => {
+  const profile = await customers.findOne({ _id: res.locals.customer.sub });
+  render(res, 'checkout.html', { profile: profile || { addresses: [] }, product_json: (await catalog(true)).map(publicProduct), checkout_token: sign(random()) });
+}));
+app.post('/orders', customerOnly, csrf, wrap(async (req, res) => {
+  const profile = await customers.findOne({ _id: res.locals.customer.sub });
+  const address = profile?.addresses?.find(a => a.address_id === req.body.address_id);
+  if (!address) return errorPage(res, 'Delivery address required', 'Save and select a delivery address before placing an order.', 400);
+  const customer = { name: address.name, email: res.locals.customer.email, phone: address.phone, address: address.address };
   let submitted;
   try { submitted = JSON.parse(req.body.items || '[]'); } catch { return res.sendStatus(400); }
   if (!Array.isArray(submitted) || !submitted.length || submitted.length > 50) return res.sendStatus(400);
@@ -121,7 +136,7 @@ app.post('/orders', csrf, wrap(async (req, res) => {
       orderId = await nextId('orders', transaction);
       const items = selected.map(p => ({ product_id: p.id, product_name: p.name, unit_price_paise: p.price_paise, quantity: quantities.get(p.id) }));
       const subtotal = items.reduce((n, item) => n + item.unit_price_paise * item.quantity, 0);
-      await orders.insertOne({ id: orderId, customer_name: customer.name, email: customer.email, phone: customer.phone, address: customer.address, subtotal_paise: subtotal, status: 'new', payment_method: 'cash_on_delivery', created_at: now(), items }, { session: transaction });
+      await orders.insertOne({ id: orderId, customer_sub: res.locals.customer.sub, customer_name: customer.name, email: customer.email, phone: customer.phone, address: customer.address, subtotal_paise: subtotal, status: 'new', payment_method: 'cash_on_delivery', created_at: now(), items }, { session: transaction });
       for (const p of selected) {
         const qty = quantities.get(p.id);
         const result = await products.updateOne({ id: p.id, active: 1, stock: { $gte: qty }, version: p.version }, { $inc: { stock: -qty, version: 1, units: qty, sales_revenue: qty * p.price_paise } }, { session: transaction });
@@ -138,62 +153,77 @@ app.post('/orders', csrf, wrap(async (req, res) => {
       else throw Object.assign(new Error('Checkout changed; please refresh'), { status: 409 });
     } else throw error;
   } finally { await transaction.endSession(); }
-  errorPage(res, `Order #${orderId} received`, 'Thank you. Your order has been recorded. Payment and delivery confirmation will be arranged separately.');
+  res.redirect(`/account/orders/${orderId}`);
 }));
-function verifyOwnerPassword(password, stored) {
-  const match = /^scrypt:(\d+):(\d+):(\d+)\$([^$]+)\$([a-f0-9]+)$/.exec(stored);
-  if (!match) return false;
-  const [, N, r, p, salt, hex] = match;
-  const expected = Buffer.from(hex, 'hex');
-  try { return crypto.timingSafeEqual(crypto.scryptSync(password, salt, expected.length, { N: Number(N), r: Number(r), p: Number(p), maxmem: 128 * 1024 * 1024 }), expected); } catch { return false; }
+
+const authReady = () => ['COGNITO_ISSUER', 'COGNITO_CLIENT_ID', 'COGNITO_CLIENT_SECRET', 'COGNITO_DOMAIN', 'APP_BASE_URL'].every(k => process.env[k]);
+let oidcConfig;
+async function cognito() {
+  if (!authReady()) return null;
+  if (!oidcConfig) oidcConfig = await oidc.discovery(new URL(process.env.COGNITO_ISSUER), process.env.COGNITO_CLIENT_ID, process.env.COGNITO_CLIENT_SECRET, oidc.ClientSecretPost());
+  return oidcConfig;
 }
-app.get('/owner/login', (req, res) => render(res, 'login.html'));
-app.post('/owner/login', csrf, wrap(async (req, res) => {
-  if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD_HASH && equal(req.body.email, process.env.ADMIN_EMAIL) && verifyOwnerPassword(String(req.body.password || ''), process.env.ADMIN_PASSWORD_HASH)) {
-    await sessions.deleteOne({ _id: digest(req.sid) });
-    const sid = random();
-    await sessions.insertOne({ _id: digest(sid), csrf: random(), owner: true, expires_at: new Date(Date.now() + 30 * 86400000) });
-    res.cookie('hk_session', sign(sid), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 30 * 86400000 });
-    return res.redirect('/owner');
+const safeNext = value => typeof value === 'string' && /^\/(?:account|checkout|shop|products)(?:[/?#]|$)/.test(value) && !value.includes(String.fromCharCode(92)) ? value : '/account';
+app.get('/account/login', wrap(async (req, res) => {
+  const config = await cognito();
+  if (!config) return errorPage(res, 'Customer login setup in progress', 'Customer registration will open when the identity service is connected.', 503);
+  const state = oidc.randomState(), verifier = oidc.randomPKCECodeVerifier(), nonce = oidc.randomNonce();
+  const challenge = await oidc.calculatePKCECodeChallenge(verifier);
+  await sessions.updateOne({ _id: digest(req.sid) }, { $set: { oauth: { state, verifier, nonce, next: safeNext(req.query.next), created_at: Date.now() } } });
+  const url = oidc.buildAuthorizationUrl(config, { redirect_uri: `${process.env.APP_BASE_URL}/account/callback`, scope: 'openid email', response_type: 'code', state, nonce, code_challenge: challenge, code_challenge_method: 'S256' });
+  res.redirect(url.href);
+}));
+app.get('/account/callback', wrap(async (req, res) => {
+  const flow = req.login.oauth;
+  if (!flow || Date.now() - flow.created_at > 600000 || req.query.state !== flow.state) return res.sendStatus(400);
+  await sessions.updateOne({ _id: digest(req.sid) }, { $unset: { oauth: '' } });
+  const config = await cognito();
+  if (!config) return res.sendStatus(503);
+  const tokens = await oidc.authorizationCodeGrant(config, new URL(req.originalUrl, process.env.APP_BASE_URL), { pkceCodeVerifier: flow.verifier, expectedState: flow.state, expectedNonce: flow.nonce, idTokenExpected: true });
+  const claims = tokens.claims();
+  if (!claims?.sub || !claims.email || claims.email_verified !== true) return errorPage(res, 'Email verification required', 'Please verify your email before signing in.', 403);
+  const customer = { sub: claims.sub, email: claims.email };
+  await customers.updateOne({ _id: customer.sub }, { $set: { email: customer.email, updated_at: now() }, $setOnInsert: { addresses: [], created_at: now() } }, { upsert: true });
+  const sid = random();
+  await sessions.insertOne({ _id: digest(sid), csrf: random(), customer, auth_expires_at: Date.now() + Math.min((tokens.expiresIn() || 3600) * 1000, 3600000), expires_at: new Date(Date.now() + 30 * 86400000) });
+  await sessions.deleteOne({ _id: digest(req.sid) });
+  res.cookie('hk_session', sign(sid), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 30 * 86400000 });
+  res.redirect(flow.next);
+}));
+app.post('/account/logout', csrf, wrap(async (req, res) => {
+  await sessions.deleteOne({ _id: digest(req.sid) });
+  res.clearCookie('hk_session');
+  if (authReady()) {
+    const url = new URL('/logout', process.env.COGNITO_DOMAIN);
+    url.searchParams.set('client_id', process.env.COGNITO_CLIENT_ID);
+    url.searchParams.set('logout_uri', process.env.APP_BASE_URL);
+    return res.redirect(url.href);
   }
-  render(res, 'login.html', { error: 'Invalid login.' });
+  res.redirect('/');
 }));
-app.post('/owner/logout', protect, csrf, wrap(async (req, res) => { await sessions.deleteOne({ _id: digest(req.sid) }); res.clearCookie('hk_session'); res.redirect('/'); }));
-app.get('/owner', protect, wrap(async (req, res) => {
-  const [summary, listing, recent, topProducts, topCustomers] = await Promise.all([
-    stats.findOne({ _id: 'shop' }), catalog(), orders.find().sort({ id: -1 }).limit(30).toArray(),
-    products.find({ units: { $gt: 0 } }).sort({ units: -1 }).limit(5).toArray(),
-    categories.find().sort({ spent: -1 }).limit(5).toArray()]);
-  render(res, 'owner.html', { stats: summary || { orders: 0, revenue: 0 }, products: listing, stock_total: listing.reduce((n,p) => n + p.stock, 0), orders: recent,
-    best: topProducts.map(p => ({ product_name: p.name, units: p.units })), customers: topCustomers });
+app.get('/account', customerOnly, wrap(async (req, res) => {
+  const profile = await customers.findOne({ _id: res.locals.customer.sub });
+  const history = await orders.find({ customer_sub: res.locals.customer.sub }).sort({ id: -1 }).limit(30).toArray();
+  render(res, 'account.html', { profile: profile || { addresses: [] }, orders: history });
 }));
-app.post('/owner/products', protect, csrf, wrap(async (req, res) => {
-  const values = productInput(req.body, 1); if (!values) return res.sendStatus(400);
-  const id = await nextId('products');
-  await products.insertOne({ id, ...values, version: 1, units: 0, sales_revenue: 0, created_at: now() });
-  res.redirect('/owner');
+app.post('/account/addresses', customerOnly, csrf, wrap(async (req, res) => {
+  const fields = Object.fromEntries(['label', 'name', 'phone', 'address'].map(k => [k, String(req.body[k] || '').trim()]));
+  if (!fields.label || fields.label.length > 40 || !fields.name || fields.name.length > 120 || !/^[+0-9 ()-]{7,25}$/.test(fields.phone) || !fields.address || fields.address.length > 500) return res.sendStatus(400);
+  const address = { address_id: random(), ...fields };
+  const result = await customers.updateOne({ _id: res.locals.customer.sub, 'addresses.4': { $exists: false } }, { $push: { addresses: address } });
+  if (!result.modifiedCount) return errorPage(res, 'Address limit reached', 'You can save up to five addresses.', 409);
+  res.redirect('/account#addresses');
 }));
-app.post('/owner/products/:id', protect, csrf, wrap(async (req, res) => {
-  const values = productInput(req.body, req.body.active ? 1 : 0);
-  const id = Number(req.params.id), version = Number(req.body.version);
-  if (!values || !Number.isSafeInteger(id) || !Number.isSafeInteger(version)) return res.sendStatus(400);
-  const result = await products.updateOne({ id, version }, { $set: values, $inc: { version: 1 } });
-  if (!result.matchedCount) return errorPage(res, 'Please refresh', 'Product changed; reload before saving.', 409);
-  res.redirect('/owner');
+app.post('/account/addresses/:id/delete', customerOnly, csrf, wrap(async (req, res) => {
+  await customers.updateOne({ _id: res.locals.customer.sub }, { $pull: { addresses: { address_id: req.params.id } } });
+  res.redirect('/account#addresses');
 }));
-app.post('/owner/orders/:id', protect, csrf, wrap(async (req, res) => {
-  if (!['new', 'confirmed', 'shipped', 'completed', 'cancelled'].includes(req.body.status)) return res.sendStatus(400);
-  const result = await orders.updateOne({ id: Number(req.params.id) }, { $set: { status: req.body.status } });
-  if (!result.matchedCount) return res.sendStatus(404);
-  res.redirect('/owner');
-}));
-app.get('/owner/orders/:id', protect, wrap(async (req, res) => {
-  const order = await orders.findOne({ id: Number(req.params.id) });
+app.get('/account/orders/:id', customerOnly, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  const order = Number.isSafeInteger(id) ? await orders.findOne({ id, customer_sub: res.locals.customer.sub }) : null;
   if (!order) return res.sendStatus(404);
-  render(res, 'order.html', { order, items: order.items });
+  render(res, 'customer_order.html', { order });
 }));
-app.get('/account/login', (req, res) => errorPage(res, 'Customer login is being prepared', 'Please continue shopping as a guest while we finish connecting accounts.', 503));
-app.get('/account', (req, res) => res.redirect('/account/login'));
 app.use((error, req, res, next) => {
   if (error.status && error.status < 500) return errorPage(res, 'Bag changed', error.message, error.status);
   console.error(error);
@@ -206,7 +236,7 @@ export async function init() {
   if (marker?.state !== 'READY') throw new Error('Atlas migration is not verified; run migrate-to-atlas.js first');
   await Promise.all([
     products.createIndex({ id: 1 }, { unique: true }), orders.createIndex({ id: 1 }, { unique: true }),
-    orders.createIndex({ id: -1 }), categories.createIndex({ email: 1 }, { unique: true }),
+    orders.createIndex({ id: -1 }), orders.createIndex({ customer_sub: 1, id: -1 }), categories.createIndex({ email: 1 }, { unique: true }),
     sessions.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 })]);
   return app;
 }

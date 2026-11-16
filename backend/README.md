@@ -1,15 +1,9 @@
 # Backend
 
-`server.js` is the active Node.js/Express app. It handles the storefront,
-checkout, owner session and routes, and template rendering. It loads local
-settings from the root `.env.mongo` and serves `frontend/static/`.
+`server.js` is the active Node.js/Express customer app. It serves the storefront, category and product pages, Cognito customer login, saved addresses, customer order history, and checkout. The old owner routes are removed from this server.
 
-Checkout runs in a MongoDB transaction: one order record, conditional stock
-updates, sales totals, and a durable checkout receipt commit together. The
-transaction requires an Atlas replica set. Owner product edits use a version
-check so an old form cannot silently overwrite stock changed by a purchase.
+Customer sign-in uses the Cognito Lite classic hosted UI and authorization-code flow with PKCE. The server keeps customer identity in an HttpOnly, signed, server-side session. Cognito owns passwords and email verification; Atlas owns address and order data. Login sessions currently expire after at most one hour, requiring a new sign-in. The local callback is `http://localhost:5050/account/callback`. A public HTTPS URL requires updating the Cognito app client's exact callback and `APP_BASE_URL` before launch.
 
-Customer login is not implemented in Node yet. `/account/login` returns a clear
-temporary message. Owner login is disabled unless both owner environment
-settings are present. The app listens on localhost by default and uses the
-Express development process; use an appropriate hosted runtime for public use.
+Checkout requires an authenticated customer and an address stored under that customer's Cognito `sub`. It recalculates prices and availability on the server and commits the order, stock changes, totals, and duplicate-checkout receipt in a MongoDB transaction. Payment is cash on delivery; no online payment gateway is installed. The address and phone used for an order are snapshotted into that order.
+
+`database/setup-customer-auth.js` was run once to provision the user pool, confidential app client, and classic hosted UI domain in the AWS project's assigned `ap-southeast-2` Region. It stores IDs and the secret in ignored `.env.mongo`. Do not rerun it for this existing pool.

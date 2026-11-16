@@ -31,12 +31,15 @@ test('unsupported account data stops migration', () => {
   assert.throws(() => classify([{ collection: 'ACCOUNT#person', id: 0 }]), /Unsupported/);
 });
 
-test('shop and owner templates render with Node variables', () => {
+test('customer shop, catalog, product, checkout, and account templates render', () => {
   const env = nunjucks.configure('frontend/templates', { autoescape: true });
   env.addFilter('money', n => (Number(n || 0) / 100).toFixed(2));
   env.addFilter('json_safe', x => new nunjucks.runtime.SafeString(JSON.stringify(x).replace(/</g, '\\u003c')));
-  const shop = env.render('shop.html', { product_json: [], checkout_token: 'token', csrf: 'csrf' });
-  const owner = env.render('owner.html', { csrf: 'csrf', stats: { orders: 0, revenue: 0 }, products: [], stock_total: 0, orders: [], best: [], customers: [] });
-  assert.match(shop, /const rawProducts=\[\]/);
-  assert.match(owner, /No orders yet/);
+  env.addFilter('urlencode', x => encodeURIComponent(x));
+  const base = { product_json: [], products: [], csrf: 'csrf', customer: { email: 'test@example.com' }, profile: { addresses: [] }, orders: [] };
+  assert.match(env.render('shop.html', base), /href="\/shop"/);
+  assert.match(env.render('catalog.html', { ...base, tags: ['Door Hangings'] }), /Door Hangings/);
+  assert.match(env.render('product.html', { ...base, product: { id: 1, name: 'Example', price_paise: 200, tags: [], stock: 1 } }), /Add to bag/);
+  assert.match(env.render('checkout.html', { ...base, checkout_token: 'token' }), /Delivery address/);
+  assert.match(env.render('account.html', base), /Saved addresses/);
 });
