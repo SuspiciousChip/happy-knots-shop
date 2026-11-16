@@ -19,7 +19,8 @@ export function parseAddress(body) {
   return { ...fields, phone: `+91 ${fields.phone}` };
 }
 
-export const isCompleteAddress = address => Boolean(address?.address_line1 && address.city &&
+export const isCompleteAddress = address => Boolean(address?.name && address.address_line1 && address.city &&
+  /^\+91 [0-9]{10}$/.test(address.phone || '') &&
   INDIAN_STATES_AND_UTS.includes(address.state) && /^[1-9][0-9]{5}$/.test(address.pincode));
 
 export const formatAddress = address => [address.address_line1, address.address_line2,

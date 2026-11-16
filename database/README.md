@@ -8,6 +8,7 @@ The active database is MongoDB Atlas, named by `MONGODB_DB` (default `happy_knot
 | `customers` | Cognito subject (`_id`), verified email, saved delivery addresses (two address lines, city, optional landmark, state or Union Territory, six-digit PIN code) |
 | `orders` | Customer subject, delivery snapshot including address lines, city, landmark, state and PIN code; immutable line items; status |
 | `sessions` | Expiring server-side customer sessions and short-lived OAuth state |
+| `login_rate_limits` | Expiring per-IP login-initiation counters |
 | `checkout_receipts` | Duplicate-checkout guard |
 | `stats`, `counters`, `customer_totals` | Shop totals and numeric IDs |
 | `migration` | Verified source import marker |

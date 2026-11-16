@@ -42,6 +42,7 @@ const stats = database.collection('stats');
 const counters = database.collection('counters');
 const receipts = database.collection('checkout_receipts');
 const sessions = database.collection('sessions');
+const loginLimits = database.collection('login_rate_limits');
 const customers = database.collection('customers');
 const categories = database.collection('customer_totals');
 const env = nunjucks.configure(path.join(projectRoot, 'frontend', 'templates'), { autoescape: true, noCache: process.env.NODE_ENV !== 'production' });
@@ -63,15 +64,11 @@ const sign = value => `${value}.${crypto.createHmac('sha256', process.env.FLASK_
 const unsign = value => { if (!value) return null; const index = value.lastIndexOf('.'); const raw = value.slice(0, index); return index > 0 && equal(sign(raw), value) ? raw : null; };
 app.use(async (req, res, next) => {
   try {
-    let sid = unsign(req.cookies.hk_session);
-    let row = sid && await sessions.findOne({ _id: digest(sid), expires_at: { $gt: new Date() } });
-    if (!row) {
-      sid = random(); row = { _id: digest(sid), csrf: random(), expires_at: new Date(Date.now() + 30 * 86400000) };
-      await sessions.insertOne(row);
-      res.cookie('hk_session', sign(sid), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 30 * 86400000 });
-    }
-    req.sid = sid; req.login = row; res.locals.csrf = row.csrf;
-    res.locals.customer = row.customer && row.auth_expires_at > Date.now() ? row.customer : null;
+    const sid = unsign(req.cookies.hk_session);
+    const row = sid ? await sessions.findOne({ _id: digest(sid), expires_at: { $gt: new Date() } }) : null;
+    if (!row && req.cookies.hk_session) res.clearCookie('hk_session');
+    req.sid = row ? sid : null; req.login = row || {}; res.locals.csrf = row?.csrf;
+    res.locals.customer = row?.customer && row.auth_expires_at > Date.now() ? row.customer : null;
     next();
   } catch (error) { next(error); }
 });
@@ -171,12 +168,32 @@ async function cognito() {
   return oidcConfig;
 }
 const safeNext = value => typeof value === 'string' && /^\/(?:account|checkout|shop|products)(?:[/?#]|$)/.test(value) && !value.includes(String.fromCharCode(92)) ? value : '/account';
-app.get('/account/login', wrap(async (req, res) => {
+const loginRateLimit = async (req, res, next) => {
+  try {
+    const windowMs = 10 * 60 * 1000;
+    const bucket = Math.floor(Date.now() / windowMs);
+    const key = digest(`${req.ip || req.socket.remoteAddress}:${bucket}`);
+    const result = await loginLimits.findOneAndUpdate({ _id: key },
+      { $inc: { count: 1 }, $setOnInsert: { expires_at: new Date((bucket + 1) * windowMs + 60000) } },
+      { upsert: true, returnDocument: 'after' });
+    if (result.count > 10) return errorPage(res, 'Please wait a moment', 'Too many sign-in requests. Please try again shortly.', 429);
+    next();
+  } catch (error) { next(error); }
+};
+app.get('/account/login', loginRateLimit, wrap(async (req, res) => {
   const config = await cognito();
   if (!config) return errorPage(res, 'Customer login setup in progress', 'Customer registration will open when the identity service is connected.', 503);
   const state = oidc.randomState(), verifier = oidc.randomPKCECodeVerifier(), nonce = oidc.randomNonce();
   const challenge = await oidc.calculatePKCECodeChallenge(verifier);
-  await sessions.updateOne({ _id: digest(req.sid) }, { $set: { oauth: { state, verifier, nonce, next: safeNext(req.query.next), created_at: Date.now() } } });
+  let sid = req.sid;
+  if (!sid) {
+    sid = random();
+    await sessions.insertOne({ _id: digest(sid), csrf: random(), expires_at: new Date(Date.now() + 10 * 60000),
+      oauth: { state, verifier, nonce, next: safeNext(req.query.next), created_at: Date.now() } });
+    res.cookie('hk_session', sign(sid), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 10 * 60000 });
+  } else {
+    await sessions.updateOne({ _id: digest(sid) }, { $set: { oauth: { state, verifier, nonce, next: safeNext(req.query.next), created_at: Date.now() } } });
+  }
   const url = oidc.buildAuthorizationUrl(config, { redirect_uri: `${process.env.APP_BASE_URL}/account/callback`, scope: 'openid email', response_type: 'code', state, nonce, code_challenge: challenge, code_challenge_method: 'S256' });
   res.redirect(url.href);
 }));
@@ -192,9 +209,10 @@ app.get('/account/callback', wrap(async (req, res) => {
   const customer = { sub: claims.sub, email: claims.email };
   await customers.updateOne({ _id: customer.sub }, { $set: { email: customer.email, updated_at: now() }, $setOnInsert: { addresses: [], created_at: now() } }, { upsert: true });
   const sid = random();
-  await sessions.insertOne({ _id: digest(sid), csrf: random(), customer, auth_expires_at: Date.now() + Math.min((tokens.expiresIn() || 3600) * 1000, 3600000), expires_at: new Date(Date.now() + 30 * 86400000) });
+  const lifetime = Math.min((tokens.expiresIn() || 3600) * 1000, 3600000);
+  await sessions.insertOne({ _id: digest(sid), csrf: random(), customer, auth_expires_at: Date.now() + lifetime, expires_at: new Date(Date.now() + lifetime) });
   await sessions.deleteOne({ _id: digest(req.sid) });
-  res.cookie('hk_session', sign(sid), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 30 * 86400000 });
+  res.cookie('hk_session', sign(sid), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: lifetime });
   res.redirect(flow.next);
 }));
 app.post('/account/logout', csrf, wrap(async (req, res) => {
@@ -244,7 +262,8 @@ export async function init() {
   await Promise.all([
     products.createIndex({ id: 1 }, { unique: true }), orders.createIndex({ id: 1 }, { unique: true }),
     orders.createIndex({ id: -1 }), orders.createIndex({ customer_sub: 1, id: -1 }), categories.createIndex({ email: 1 }, { unique: true }),
-    sessions.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 })]);
+    sessions.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
+    loginLimits.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 })]);
   return app;
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

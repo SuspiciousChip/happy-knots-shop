@@ -8,9 +8,10 @@ test('Indian delivery address keeps two lines, state, and leading PIN code digit
   assert.equal(INDIAN_STATES_AND_UTS.length, 36);
   assert.deepEqual(parseAddress(valid), { ...valid, phone: '+91 9876543210' });
   assert.equal(formatAddress(valid), 'Flat 2, Main Road\nNear park\nLandmark: Clock tower\nJaipur, Rajasthan – 302001');
-  assert.equal(isCompleteAddress(valid), true);
+  assert.equal(isCompleteAddress(parseAddress(valid)), true);
   assert.equal(parseAddress({ ...valid, address_line2: '', landmark: '' }).landmark, '');
-  assert.equal(isCompleteAddress({ ...valid, city: undefined }), false);
+  assert.equal(isCompleteAddress({ ...parseAddress(valid), city: undefined }), false);
+  assert.equal(isCompleteAddress({ ...parseAddress(valid), phone: "123" }), false);
 });
 
 test('rejects missing and malformed delivery details', () => {
