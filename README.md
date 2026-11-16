@@ -1,6 +1,6 @@
-# The Happy Knots shop
+# Happy Knots Shop
 
-A separate Flask storefront and owner dashboard. It uses SQLite for local development and does not depend on Odoo or the earlier static preview.
+A Flask storefront with a private owner dashboard. Customers can browse products, add items to a bag, and place cash-on-delivery orders. The owner can manage products and stock, review orders, update order status, and see sales summaries.
 
 ## Run locally
 
@@ -8,16 +8,36 @@ A separate Flask storefront and owner dashboard. It uses SQLite for local develo
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
-python3 -c 'from werkzeug.security import generate_password_hash; import getpass; print(generate_password_hash(getpass.getpass("Owner password: ")))' 
 ```
 
-Set `FLASK_SECRET_KEY` to a long random value, `ADMIN_EMAIL` to your owner email, and `ADMIN_PASSWORD_HASH` to the generated hash. Set `DATABASE_PATH` if you want the database outside the project. Then run `python3 app.py` and visit `http://127.0.0.1:5000`. The owner dashboard is at `/owner/login`.
+Generate a password hash for the owner login:
 
-## Current scope
+```sh
+python3 -c 'from werkzeug.security import generate_password_hash; import getpass; print(generate_password_hash(getpass.getpass("Owner password: ")))'
+```
 
-- Owner: add/edit products, price, stock, visibility, inspect orders, update order status, view sales and top products/customers.
-- Customer: browse/filter products, cart, checkout with contact and delivery address, cash on delivery order recording.
-- No card or online payment provider is connected. Do not advertise online payments until one is configured.
-- The first catalog is empty so the owner can add real products and prices. Photos from the existing Happy Knots site are included for use in product entries.
+Set the following environment variables in your shell, using your own values:
 
-For production, use a hosted database, HTTPS, a fixed secret key, protected owner credentials, migrations, backups, and a payment provider. Replace the `db()` adapter and schema setup when connecting your chosen database. Do not commit `.env` or a database file.
+```sh
+export FLASK_SECRET_KEY='replace-with-a-long-random-secret'
+export ADMIN_EMAIL='you@example.com'
+export ADMIN_PASSWORD_HASH='paste-the-generated-hash-here'
+```
+
+Then start the app:
+
+```sh
+python3 app.py
+```
+
+Open `http://127.0.0.1:5000` for the shop and `http://127.0.0.1:5000/owner/login` for the owner dashboard. The app creates a local SQLite database (`store.db`) on first start. You can set `DATABASE_PATH` to store it elsewhere.
+
+## Data and payments
+
+Products, orders, order items, and stock are stored in SQLite for local development. The first catalog is empty; add real products from the owner dashboard. Image assets from the earlier Happy Knots site are included under `static/assets/`.
+
+Orders are recorded as cash on delivery. Online payment is not connected. For a public deployment, plan for a hosted database, HTTPS, backups, and a payment provider if online checkout is needed.
+
+## Keep secrets out of Git
+
+The repository ignores `.env`, `*.db`, and virtual environments. Set real credentials through environment variables or your deployment platform's secret settings. Never commit AWS credentials, access keys, the owner password, or a database file. `.env.example` contains placeholders only.
