@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}My account | Happy Knots{% endblock %}
+{% block body %}
+<header class="account-header">
+  <a class="account-brand" href="/">Happy Knots</a>
+  <a href="/">Continue shopping</a>
+  <form action="/account/logout" method="post">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button class="text-button">Sign out</button>
+  </form>
+</header>
+<main class="account-page">
+  <div class="account-intro"><h1>My account</h1><p>{{ customer.email }}</p></div>
+  <nav class="account-nav" aria-label="Account sections"><a href="#orders">My orders</a><a href="#addresses">Saved addresses</a></nav>
+  <section id="orders" class="account-section" aria-labelledby="orders-title">
+    <h2 id="orders-title">My orders</h2>
+    {% if orders %}
+    <div class="account-orders">
+      {% for order in orders %}
+      <a class="account-order-row" href="/account/orders/{{ order.id }}">
+        <span><strong>Order #{{ order.id }}</strong><small>{{ order.created_at | truncate(10, true, '') }}</small></span>
+        <span class="badge">{{ order.status|title }}</span>
+        <strong>₹{{ order.subtotal_paise | money }}</strong>
+        <span class="order-action">View order</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% if next_cursor %}<a class="button secondary" href="/account?before={{ next_cursor }}#orders">Older orders</a>{% endif %}
+    {% else %}
+    <div class="account-empty"><h3>Your handmade favourites start here.</h3><p>Orders you place while signed in will appear here. Earlier guest orders stay separate.</p><a class="button" href="/">Explore the collection</a></div>
+    {% endif %}
+  </section>
+  <section id="addresses" class="account-section" aria-labelledby="addresses-title">
+    <h2 id="addresses-title">Saved addresses</h2>
+    <p>Save up to five delivery addresses to choose from at checkout.</p>
+    {% for a in profile.addresses %}
+    <article class="saved-address">
+      <div><h3>{{ a.label }}</h3><p>{{ a.name }}<br>{{ a.phone }}</p><p class="address-lines">{{ a.address }}</p></div>
+      <form action="/account/addresses/{{ a.address_id }}/delete" method="post">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ profile.version }}">
+        <button class="text-button" aria-label="Remove {{ a.label }} address">Remove</button>
+      </form>
+    </article>
+    {% else %}<p class="account-muted">No saved addresses yet. Add one below, or enter your details during checkout.</p>{% endfor %}
+    {% if profile.addresses|length < 5 %}
+    <form class="address-form" action="/save_address" method="post">
+      <h3>Add a delivery address</h3>
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ profile.version }}">
+      <label>Address label<input name="label" placeholder="For example, Home" required maxlength="40" autocomplete="off"></label>
+      <label>Full name<input name="name" required maxlength="120" autocomplete="shipping name"></label>
+      <label>Phone<input name="phone" type="tel" required maxlength="50" autocomplete="shipping tel"></label>
+      <label class="full-width">Delivery address<textarea name="address" required maxlength="500" autocomplete="shipping street-address"></textarea></label>
+      <button class="button">Save address</button>
+    </form>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}

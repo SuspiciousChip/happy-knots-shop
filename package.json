@@ -1,0 +1,19 @@
+{
+  "name": "happy-knots",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node backend/server.js",
+    "test": "node --test node-tests/*.test.js",
+    "migrate": "node database/migrate-to-atlas.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1169.0",
+    "@aws-sdk/util-dynamodb": "^3.996.9",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "mongodb": "^6.20.0",
+    "nunjucks": "^3.2.4"
+  }
+}
