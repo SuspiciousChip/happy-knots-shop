@@ -9,6 +9,7 @@ import nunjucks from 'nunjucks';
 import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
 import * as oidc from 'openid-client';
+import { INDIAN_STATES_AND_UTS, parseAddress, isCompleteAddress, formatAddress } from './address.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(root, '..');
@@ -104,13 +105,15 @@ app.get('/products/:id', wrap(async (req, res) => {
 }));
 app.get('/checkout', customerOnly, wrap(async (req, res) => {
   const profile = await customers.findOne({ _id: res.locals.customer.sub });
-  render(res, 'checkout.html', { profile: profile || { addresses: [] }, product_json: (await catalog(true)).map(publicProduct), checkout_token: sign(random()) });
+  render(res, 'checkout.html', { profile: { addresses: (profile?.addresses || []).filter(isCompleteAddress) }, product_json: (await catalog(true)).map(publicProduct), checkout_token: sign(random()) });
 }));
 app.post('/orders', customerOnly, csrf, wrap(async (req, res) => {
   const profile = await customers.findOne({ _id: res.locals.customer.sub });
   const address = profile?.addresses?.find(a => a.address_id === req.body.address_id);
-  if (!address) return errorPage(res, 'Delivery address required', 'Save and select a delivery address before placing an order.', 400);
-  const customer = { name: address.name, email: res.locals.customer.email, phone: address.phone, address: address.address };
+  if (!isCompleteAddress(address)) return errorPage(res, 'Complete delivery address required', 'Save and select an address with a state and six-digit PIN code before placing an order.', 400);
+  const customer = { name: address.name, email: res.locals.customer.email, phone: address.phone,
+    address_line1: address.address_line1, address_line2: address.address_line2,
+    state: address.state, pincode: address.pincode, address: formatAddress(address) };
   let submitted;
   try { submitted = JSON.parse(req.body.items || '[]'); } catch { return res.sendStatus(400); }
   if (!Array.isArray(submitted) || !submitted.length || submitted.length > 50) return res.sendStatus(400);
@@ -136,7 +139,9 @@ app.post('/orders', customerOnly, csrf, wrap(async (req, res) => {
       orderId = await nextId('orders', transaction);
       const items = selected.map(p => ({ product_id: p.id, product_name: p.name, unit_price_paise: p.price_paise, quantity: quantities.get(p.id) }));
       const subtotal = items.reduce((n, item) => n + item.unit_price_paise * item.quantity, 0);
-      await orders.insertOne({ id: orderId, customer_sub: res.locals.customer.sub, customer_name: customer.name, email: customer.email, phone: customer.phone, address: customer.address, subtotal_paise: subtotal, status: 'new', payment_method: 'cash_on_delivery', created_at: now(), items }, { session: transaction });
+      await orders.insertOne({ id: orderId, customer_sub: res.locals.customer.sub, customer_name: customer.name, email: customer.email, phone: customer.phone,
+        address: customer.address, address_line1: customer.address_line1, address_line2: customer.address_line2,
+        state: customer.state, pincode: customer.pincode, subtotal_paise: subtotal, status: 'new', payment_method: 'cash_on_delivery', created_at: now(), items }, { session: transaction });
       for (const p of selected) {
         const qty = quantities.get(p.id);
         const result = await products.updateOne({ id: p.id, active: 1, stock: { $gte: qty }, version: p.version }, { $inc: { stock: -qty, version: 1, units: qty, sales_revenue: qty * p.price_paise } }, { session: transaction });
@@ -204,11 +209,11 @@ app.post('/account/logout', csrf, wrap(async (req, res) => {
 app.get('/account', customerOnly, wrap(async (req, res) => {
   const profile = await customers.findOne({ _id: res.locals.customer.sub });
   const history = await orders.find({ customer_sub: res.locals.customer.sub }).sort({ id: -1 }).limit(30).toArray();
-  render(res, 'account.html', { profile: profile || { addresses: [] }, orders: history });
+  render(res, 'account.html', { profile: profile || { addresses: [] }, orders: history, states: INDIAN_STATES_AND_UTS });
 }));
 app.post('/account/addresses', customerOnly, csrf, wrap(async (req, res) => {
-  const fields = Object.fromEntries(['label', 'name', 'phone', 'address'].map(k => [k, String(req.body[k] || '').trim()]));
-  if (!fields.label || fields.label.length > 40 || !fields.name || fields.name.length > 120 || !/^[+0-9 ()-]{7,25}$/.test(fields.phone) || !fields.address || fields.address.length > 500) return res.sendStatus(400);
+  const fields = parseAddress(req.body);
+  if (!fields) return res.sendStatus(400);
   const address = { address_id: random(), ...fields };
   const result = await customers.updateOne({ _id: res.locals.customer.sub, 'addresses.4': { $exists: false } }, { $push: { addresses: address } });
   if (!result.modifiedCount) return errorPage(res, 'Address limit reached', 'You can save up to five addresses.', 409);

@@ -36,10 +36,11 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   env.addFilter('money', n => (Number(n || 0) / 100).toFixed(2));
   env.addFilter('json_safe', x => new nunjucks.runtime.SafeString(JSON.stringify(x).replace(/</g, '\\u003c')));
   env.addFilter('urlencode', x => encodeURIComponent(x));
-  const base = { product_json: [], products: [], csrf: 'csrf', customer: { email: 'test@example.com' }, profile: { addresses: [] }, orders: [] };
+  const base = { product_json: [], products: [], csrf: 'csrf', customer: { email: 'test@example.com' }, profile: { addresses: [] }, orders: [], states: ['Rajasthan'] };
   assert.match(env.render('shop.html', base), /href="\/shop"/);
   assert.match(env.render('catalog.html', { ...base, tags: ['Door Hangings'] }), /Door Hangings/);
   assert.match(env.render('product.html', { ...base, product: { id: 1, name: 'Example', price_paise: 200, tags: [], stock: 1 } }), /Add to bag/);
   assert.match(env.render('checkout.html', { ...base, checkout_token: 'token' }), /Delivery address/);
-  assert.match(env.render('account.html', base), /Saved addresses/);
+  assert.match(env.render('account.html', base), /name="pincode"/);
+  assert.match(env.render('account.html', base), /Select a state or UT/);
 });
