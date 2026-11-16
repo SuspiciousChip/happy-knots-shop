@@ -44,5 +44,6 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.match(env.render('account.html', base), /name="pincode"/);
   assert.match(env.render('account.html', base), /name="city"/);
   assert.match(env.render('account.html', base), /name="landmark"/);
+  assert.match(env.render('account.html', base), /\+91 is already included/);
   assert.match(env.render('account.html', base), /Select a state or UT/);
 });

@@ -18,4 +18,4 @@ The separate admin portal should write the same `products` collection. Each acti
 
 The old DynamoDB-to-Atlas importer completed on 16 November 2026. Do not rerun it against the populated Atlas database. The old table remains for rollback.
 
-New delivery addresses require address line 1, city, a selected Indian state or Union Territory, and a six-digit PIN code. Address line 2 and landmark are optional. Older saved addresses remain visible in the account but must be replaced before checkout.
+New delivery addresses require an exact 10-digit Indian phone number (stored with the +91 prefix), address line 1, city, a selected Indian state or Union Territory, and a six-digit PIN code. Address line 2 and landmark are optional. Older saved addresses remain visible in the account but must be replaced before checkout.
