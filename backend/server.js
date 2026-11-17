@@ -17,6 +17,7 @@ dotenv.config({ path: path.join(projectRoot, '.env.mongo') });
 const required = ['MONGODB_URI', 'FLASK_SECRET_KEY'];
 for (const name of required) if (!process.env[name]) throw new Error(`${name} is required`);
 const app = express();
+if (process.env.RENDER === 'true') app.set('trust proxy', 1);
 function resolvedMongoUri() {
   const original = process.env.MONGODB_URI;
   if (process.env.MONGODB_DNS_FALLBACK !== 'dig' || !original.startsWith('mongodb+srv://')) return original;
@@ -57,6 +58,7 @@ app.use((req, res, next) => {
   res.set({ 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'no-referrer' });
   next();
 });
+app.get('/healthz', (_req, res) => res.sendStatus(200));
 const random = () => crypto.randomBytes(32).toString('base64url');
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
 const equal = (a, b) => typeof a === 'string' && typeof b === 'string' && crypto.timingSafeEqual(Buffer.from(digest(a)), Buffer.from(digest(b)));
@@ -270,6 +272,8 @@ export async function init() {
   return app;
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  init().then(() => app.listen(Number(process.env.PORT || 5050), '127.0.0.1', () => console.log(`Happy Knots at http://127.0.0.1:${process.env.PORT || 5050}`))).catch(error => { console.error(error.message); process.exitCode = 1; });
+  const host = process.env.RENDER === 'true' ? '0.0.0.0' : '127.0.0.1';
+  const port = Number(process.env.PORT || 5050);
+  init().then(() => app.listen(port, host, () => console.log(`Happy Knots listening on ${host}:${port}`))).catch(error => { console.error(error.message); process.exitCode = 1; });
 }
 export { app, connection, database };
