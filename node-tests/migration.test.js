@@ -50,6 +50,11 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.match(termsPage, /SECTION 19 – CONTACT INFORMATION/);
   assert.match(termsPage, /mailto:h4appy\.knots\.official@gmail\.com/);
   assert.doesNotMatch(termsPage, /P Palettes|ppalettes\.official/);
+  const privacyPage = env.render('privacy.html', base);
+  assert.match(shopPage, /href="\/privacy"/);
+  assert.match(privacyPage, /mailto:h4appy\.knots\.official@gmail\.com/);
+  assert.match(privacyPage, /B3,Snn Raj Etternia near Tcis silver county road harulur/);
+  assert.doesNotMatch(privacyPage, /P Palettes|ppalettes\.com|GoKwik|Microsoft Clarity/);
   assert.match(env.render('catalog.html', { ...base, tags: ['Door Hangings'] }), /class="site-footer"/);
   assert.match(env.render('catalog.html', { ...base, tags: ['Door Hangings'] }), /Door Hangings/);
   assert.match(env.render('product.html', { ...base, product: { id: 1, name: 'Example', price_paise: 200, tags: [], stock: 1 } }), /Add to bag/);

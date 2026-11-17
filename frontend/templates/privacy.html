@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Privacy Policy | The Happy Knots{% endblock %}
+{% block body %}
+<div class="announcement">Handmade crochet by Rakhi Dixit</div>
+<header class="site-header"><a href="/" class="logo"><img src="/static/assets/happy-knots-logo.png" alt="The Happy Knots"></a><nav><a href="/shop">Shop products</a><a href="/#story">Our story</a></nav><a href="{{ '/account' if customer else '/account/login' }}">{{ 'My account' if customer else 'Sign in' }}</a></header>
+<main class="legal-page wrap">
+  <span class="eyebrow">Store information</span>
+  <h1>Privacy Policy</h1>
+  <div class="legal-copy">
+    <p><strong>Last updated: 17 November 2026</strong></p>
+    <p>Welcome to The Happy Knots (“we”, “our”, “us”). This policy explains how we handle personal information when you visit <a href="https://www.happyknots.shop/">www.happyknots.shop</a>, create an account, save a delivery address, place an order, or contact us.</p>
+
+    <h2>1. Information we collect</h2>
+    <p>When you create an account, we receive your verified email address and a unique account identifier from our sign-in provider. If you save an address or place an order, we collect your name, phone number, delivery address, and order details. We also receive information you choose to send us by email.</p>
+    <p>Our hosting and security services may process technical information such as your IP address, browser information, and request details. We use a short-lived, hashed version of your IP address to limit repeated sign-in attempts.</p>
+
+    <h2>2. How we collect information</h2>
+    <p>We collect information when you sign in, save or remove an address, place an order, or email us. Some technical information is collected automatically when you use the website or its sign-in protection.</p>
+
+    <h2>3. How we use information</h2>
+    <p>We use your information to provide and secure your account, save your addresses, process and deliver orders, respond to questions, prevent misuse, and meet applicable legal obligations.</p>
+
+    <h2>4. Cookies and local storage</h2>
+    <p>We use cookies to keep you signed in and to complete the order flow. Your shopping bag is saved in your browser’s local storage. Google reCAPTCHA may use cookies or similar technology on the sign-in page to help detect automated activity. If you disable essential cookies or local storage, some account or shopping features may not work.</p>
+
+    <h2>5. Service providers</h2>
+    <p>We use Render to host the website, MongoDB Atlas to store account profile and order data, Amazon Cognito for customer sign-in, and Google reCAPTCHA to protect the sign-in flow. These providers process information needed to provide their services. We may also share delivery details with a delivery provider when needed to fulfill an order. At present, checkout uses cash on delivery; the website does not collect card payment details.</p>
+
+    <h2>6. Sharing of information</h2>
+    <p>We share personal information only as needed to operate the website, fulfill orders, provide support, or comply with applicable law. We do not sell or rent customer personal information.</p>
+
+    <h2>7. Data security</h2>
+    <p>We use reasonable measures to protect personal information, including HTTPS for the public website and access controls for our services. No method of internet transmission or electronic storage is completely secure.</p>
+
+    <h2>8. Data retention</h2>
+    <p>We keep account, address, and order information for as long as needed to provide the service, respond to support requests, maintain order records, and meet applicable legal obligations. To request deletion or correction, contact us using the details below. Some order records may need to be retained where required by law.</p>
+
+    <h2>9. Processing locations</h2>
+    <p>The Happy Knots is based in India. Our service providers may process or store information in other countries where they operate.</p>
+
+    <h2>10. Children’s privacy</h2>
+    <p>Our website is not intended for children under 18. If you believe a child has provided personal information to us, please contact us so we can review and address it.</p>
+
+    <h2>11. Your privacy choices</h2>
+    <p>You can manage saved delivery addresses in your account. You can also contact us to request access to, correction of, or deletion of personal information, subject to applicable law and record-keeping requirements.</p>
+
+    <h2>12. Applicable privacy law</h2>
+    <p>We handle personal information in accordance with applicable privacy and data protection laws. This policy will be updated as our services or legal obligations change.</p>
+
+    <h2>13. Changes to this policy</h2>
+    <p>We may update this policy from time to time. The latest version and its updated date will be posted on this page.</p>
+
+    <h2>14. Contact us</h2>
+    <p>If you have questions about this policy or your personal information, contact:</p>
+    <p>The Happy Knots<br>Email: <a href="mailto:h4appy.knots.official@gmail.com">h4appy.knots.official@gmail.com</a><br>Address: B3,Snn Raj Etternia near Tcis silver county road harulur</p>
+  </div>
+</main>
+{% endblock %}
