@@ -8,6 +8,20 @@
     image.addEventListener('error', finish, { once: true });
   }
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if ('IntersectionObserver' in window) {
+    const titles = document.querySelectorAll('.hero h1, .featured-intro h2, .section-head h2, .story h2');
+    const titleObserver = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        entry.target.classList.add('is-flipped');
+        titleObserver.unobserve(entry.target);
+      }
+    }, { threshold: 0.2, rootMargin: '0px 0px -6% 0px' });
+    titles.forEach(title => {
+      title.classList.add('viewport-flip');
+      titleObserver.observe(title);
+    });
+  }
   const targets = document.querySelectorAll('[data-reveal], .catalog-layout h1, .catalog-layout .product, .product-detail-copy');
   if (!targets.length || !('IntersectionObserver' in window)) return;
   const observer = new IntersectionObserver(entries => {

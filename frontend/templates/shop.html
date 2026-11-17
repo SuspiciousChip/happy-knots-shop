@@ -63,5 +63,5 @@
 </main>
 {% include 'bag.html' %}
 <script nonce="{{ csp_nonce }}">const products={{ product_json|json_safe }};</script>
-<script src="/static/shop-motion.js" defer></script><script src="/static/shop.js"></script><script src="/static/search.js" defer></script>
+<script src="/static/shop-motion.js?v=viewport-flip-1" defer></script><script src="/static/shop.js"></script><script src="/static/search.js" defer></script>
 {% endblock %}
