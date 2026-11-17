@@ -17,6 +17,6 @@ The active database is MongoDB Atlas, named by `MONGODB_DB` (default `happy_knot
 
 The separate admin portal should write the same `products` collection. Each active product has a unique numeric `id`, `name`, `description`, `image`, `price_paise` (integer rupees × 100), `stock` (integer), `active: 1`, `version` (integer), and `tags` (array). The allowed tags are `Personal Accessories & Clothing`, `Door Hangings`, `Wall Hangings`, and `Home Decor`. A product may have several tags and appears automatically under each matching category. `All products` is a view of every active product. The storefront also reads legacy `category` when a product has no `tags` array. An admin should update `version` with stock and price to avoid overwriting a checkout change. Product images must use `/static/assets/` or an HTTPS URL.
 
-The old DynamoDB-to-Atlas importer completed on 16 November 2026. Do not rerun it against the populated Atlas database. The old table remains for rollback.
+The old DynamoDB-to-Atlas importer completed on 16 November 2026. Its executable entry point is retired so a paginated scan cannot be mistaken for a consistent snapshot or replayed into the populated Atlas database. The old table remains for rollback.
 
 New delivery addresses require an exact 10-digit Indian phone number (stored with the +91 prefix), address line 1, city, a selected Indian state or Union Territory, and a six-digit PIN code. Address line 2 and landmark are optional. Older saved addresses remain visible in the account but must be replaced before checkout.

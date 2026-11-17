@@ -157,6 +157,7 @@ app.post('/orders', customerOnly, csrf, wrap(async (req, res) => {
       else throw Object.assign(new Error('Checkout changed; please refresh'), { status: 409 });
     } else throw error;
   } finally { await transaction.endSession(); }
+  res.cookie('hk_checkout_success', sign(String(orderId)), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 60000 });
   res.redirect(`/account/orders/${orderId}`);
 }));
 
@@ -247,7 +248,9 @@ app.get('/account/orders/:id', customerOnly, wrap(async (req, res) => {
   const id = Number(req.params.id);
   const order = Number.isSafeInteger(id) ? await orders.findOne({ id, customer_sub: res.locals.customer.sub }) : null;
   if (!order) return res.sendStatus(404);
-  render(res, 'customer_order.html', { order });
+  const clear_cart = unsign(req.cookies.hk_checkout_success) === String(id);
+  if (req.cookies.hk_checkout_success) res.clearCookie('hk_checkout_success');
+  render(res, 'customer_order.html', { order, clear_cart });
 }));
 app.use((error, req, res, next) => {
   if (error.status && error.status < 500) return errorPage(res, 'Bag changed', error.message, error.status);

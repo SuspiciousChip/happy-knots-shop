@@ -1,17 +1,38 @@
 import re
+import sqlite3
 
 import boto3
 import pytest
 from moto import mock_aws
 
 import app as web
-from migrate import build_items, create_table, migrate
+from migrate import build_items, create_table, ensure_backup, migrate
 from storage import Store, BagChanged, Conflict, key
 
 EMPTY = {'products': [], 'orders': [], 'order_items': []}
 CUSTOMER = dict(customer_name='Test Customer', email='test@example.invalid', phone='123', address='Test address')
 PRODUCT = dict(name='Crochet flower', category='Flowers', description='Handmade', price_paise=1234,
                image='', stock=5, active=1, created_at='2026-11-16')
+
+
+@pytest.mark.parametrize('value', [1.5, b'binary'])
+def test_migration_rejects_unsupported_sqlite_values(value):
+    rows = {**EMPTY, 'products': [{'id': 1, **PRODUCT, 'description': value}]}
+    with pytest.raises(ValueError, match='source.products\\[0\\].description'):
+        build_items(rows)
+
+
+def test_backup_replaces_incomplete_file(tmp_path):
+    snapshot = sqlite3.connect(':memory:')
+    snapshot.execute('CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT)')
+    snapshot.execute('INSERT INTO products VALUES (1, "Flower")')
+    snapshot.commit()
+    backup_path = tmp_path / 'backup.db'
+    backup_path.touch()
+    ensure_backup(snapshot, backup_path)
+    with sqlite3.connect(backup_path) as backup:
+        assert backup.execute('SELECT name FROM products').fetchone()[0] == 'Flower'
+    ensure_backup(snapshot, backup_path)
 
 
 @pytest.fixture

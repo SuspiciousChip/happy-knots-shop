@@ -54,7 +54,7 @@ class CustomerAuth:
                 client_secret=self.config.get("COGNITO_CLIENT_SECRET"),
                 server_metadata_url=self.issuer + "/.well-known/openid-configuration",
                 client_kwargs={"scope": "openid email profile", "code_challenge_method": "S256",
-                               "token_endpoint_auth_method": "client_secret_basic", "timeout": 10})
+                               "token_endpoint_auth_method": "client_secret_basic", "default_timeout": 10})
 
         app.add_url_rule("/account/login", "customer_login", self.login)
         app.add_url_rule("/account/signup", "customer_signup", self.login)

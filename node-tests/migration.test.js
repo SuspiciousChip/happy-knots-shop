@@ -7,6 +7,7 @@ process.env.FLASK_SECRET_KEY ||= 'test-only-secret';
 process.env.ADMIN_EMAIL ||= 'owner@example.invalid';
 process.env.ADMIN_PASSWORD_HASH ||= 'scrypt:32768:8:1$test$' + '0'.repeat(128);
 const { classify } = await import('../database/migrate-to-atlas.js');
+const { hasConfiguredAuth, mergeAuthConfig } = await import('../database/setup-customer-auth.js');
 
 test('DynamoDB records map to the Node collections without losing order lines', () => {
   const rows = [
@@ -46,4 +47,19 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.match(env.render('account.html', base), /name="landmark"/);
   assert.match(env.render('account.html', base), /\+91 is already included/);
   assert.match(env.render('account.html', base), /Select a state or UT/);
+  assert.doesNotMatch(env.render('account.html', base).split('</title>')[0], /<script>/);
+  const order = { id: 11, subtotal_paise: 2400, items: [{ product_name: 'Flower', quantity: 2, unit_price_paise: 1200 }] };
+  const orderPage = env.render('customer_order.html', { ...base, order, clear_cart: true });
+  assert.match(orderPage, /₹24\.00/);
+  assert.match(orderPage, /localStorage\.removeItem\('happy-knots-cart'\)/);
+  assert.doesNotMatch(env.render('customer_order.html', { ...base, order, clear_cart: false }), /localStorage\.removeItem/);
+});
+
+test('Cognito setup replaces template placeholders without duplicate keys', () => {
+  const source = 'MONGODB_DB=happy_knots\nCOGNITO_POOL_ID=ap-southeast-2_example\nCOGNITO_CLIENT_ID=example\nCOGNITO_CLIENT_SECRET=replace-with-confidential-client-secret\n';
+  assert.equal(hasConfiguredAuth(source), false);
+  const merged = mergeAuthConfig(source, { COGNITO_POOL_ID: 'ap-southeast-2_real', COGNITO_CLIENT_ID: 'real', COGNITO_CLIENT_SECRET: 'secret' });
+  assert.match(merged, /MONGODB_DB=happy_knots/);
+  assert.equal((merged.match(/^COGNITO_POOL_ID=/gm) || []).length, 1);
+  assert.equal(hasConfiguredAuth(merged), true);
 });

@@ -5,6 +5,7 @@ import json
 import os
 import sqlite3
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -73,6 +74,17 @@ def read_sqlite(path):
 
 
 def build_items(rows):
+    def validate(value, location):
+        if isinstance(value, (float, bytes)):
+            raise ValueError(f"Unsupported SQLite value at {location}: {type(value).__name__}")
+        if isinstance(value, dict):
+            for name, child in value.items():
+                validate(child, f"{location}.{name}")
+        elif isinstance(value, (list, tuple)):
+            for index, child in enumerate(value):
+                validate(child, f"{location}[{index}]")
+
+    validate(rows, "source")
     products = {p["id"]: {**p, "collection": "PRODUCTS", "version": 1, "units": 0, "sales_revenue": 0}
                 for p in rows["products"]}
     orders = {o["id"]: {**o, "collection": "ORDERS", "items": []} for o in rows["orders"]}
@@ -153,6 +165,34 @@ def verify(store, expected):
         raise ValueError("Verification failed: target records differ from the source; keep writers stopped")
 
 
+def ensure_backup(snapshot, backup_path):
+    """Keep a verified SQLite backup before any AWS writes."""
+    def digest(connection):
+        if connection.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+            raise ValueError("SQLite backup failed integrity check")
+        return hashlib.sha256("\n".join(connection.iterdump()).encode()).digest()
+
+    expected = digest(snapshot)
+    if backup_path.exists():
+        try:
+            with sqlite3.connect(backup_path) as existing:
+                if digest(existing) == expected:
+                    return
+        except (sqlite3.Error, ValueError):
+            pass
+    fd, temporary = tempfile.mkstemp(prefix=".sqlite-backup-", suffix=".db", dir=backup_path.parent)
+    os.close(fd)
+    try:
+        with sqlite3.connect(temporary) as backup:
+            snapshot.backup(backup)
+            if digest(backup) != expected:
+                raise ValueError("SQLite backup does not match source snapshot")
+        os.replace(temporary, backup_path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=Path(__file__).parent / "store.db")
@@ -171,11 +211,7 @@ def main():
         backup_dir.mkdir(mode=0o700, exist_ok=True)
         digest = hashlib.sha256(json.dumps(rows, sort_keys=True).encode()).hexdigest()[:16]
         backup_path = backup_dir / f"sqlite-before-dynamodb-{digest}.db"
-        if not backup_path.exists():
-            fd = os.open(backup_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-            os.close(fd)
-            with sqlite3.connect(backup_path) as backup:
-                snapshot.backup(backup)
+        ensure_backup(snapshot, backup_path)
         resource = dynamodb_resource(args.profile)
         create_table(resource, args.table)
         migrate(Store(resource, args.table), rows)

@@ -107,7 +107,7 @@ def provision(profile, base_url, output, table_name=DEFAULT_TABLE):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--profile', default='Aryan-Dixit')
+    parser.add_argument('--profile', default=os.environ.get('AWS_PROFILE'))
     parser.add_argument('--base-url', default='http://localhost:5050')
     parser.add_argument('--output', type=Path, default=Path(__file__).parent / '.env.auth')
     args = parser.parse_args()
