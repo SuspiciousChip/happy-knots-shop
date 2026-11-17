@@ -10,6 +10,7 @@ import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
 import * as oidc from 'openid-client';
 import { INDIAN_STATES_AND_UTS, parseAddress, isCompleteAddress, formatAddress } from './address.js';
+import { verifyRecaptcha } from './recaptcha.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(root, '..');
@@ -183,22 +184,44 @@ const loginRateLimit = async (req, res, next) => {
     next();
   } catch (error) { next(error); }
 };
-app.get('/account/login', loginRateLimit, wrap(async (req, res) => {
+async function startCognitoLogin(req, res, next) {
   const config = await cognito();
-  if (!config) return errorPage(res, 'Customer login setup in progress', 'Customer registration will open when the identity service is connected.', 503);
+  if (!config) return errorPage(res, 'Customer login setup in progress', 'Please try again shortly.', 503);
   const state = oidc.randomState(), verifier = oidc.randomPKCECodeVerifier(), nonce = oidc.randomNonce();
   const challenge = await oidc.calculatePKCECodeChallenge(verifier);
   let sid = req.sid;
   if (!sid) {
     sid = random();
     await sessions.insertOne({ _id: digest(sid), csrf: random(), expires_at: new Date(Date.now() + 10 * 60000),
-      oauth: { state, verifier, nonce, next: safeNext(req.query.next), created_at: Date.now() } });
+      oauth: { state, verifier, nonce, next, created_at: Date.now() } });
     res.cookie('hk_session', sign(sid), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 10 * 60000 });
   } else {
-    await sessions.updateOne({ _id: digest(sid) }, { $set: { oauth: { state, verifier, nonce, next: safeNext(req.query.next), created_at: Date.now() } } });
+    await sessions.updateOne({ _id: digest(sid) }, { $set: { oauth: { state, verifier, nonce, next, created_at: Date.now() } } });
   }
   const url = oidc.buildAuthorizationUrl(config, { redirect_uri: `${process.env.APP_BASE_URL}/account/callback`, scope: 'openid email', response_type: 'code', state, nonce, code_challenge: challenge, code_challenge_method: 'S256' });
   res.redirect(url.href);
+}
+app.get('/account/login', loginRateLimit, wrap(async (req, res) => {
+  if (res.locals.customer) return res.redirect('/account');
+  if (!authReady() || Boolean(process.env.RECAPTCHA_SITE_KEY) !== Boolean(process.env.RECAPTCHA_SECRET_KEY))
+    return errorPage(res, 'Customer login setup in progress', 'Please try again shortly.', 503);
+  if (!process.env.RECAPTCHA_SITE_KEY) return startCognitoLogin(req, res, safeNext(req.query.next));
+  render(res, 'login.html', { next: safeNext(req.query.next), recaptcha_site_key: process.env.RECAPTCHA_SITE_KEY });
+}));
+app.post('/account/login', loginRateLimit, wrap(async (req, res) => {
+  if (res.locals.customer) return res.redirect('/account');
+  if (!process.env.RECAPTCHA_SITE_KEY || !process.env.RECAPTCHA_SECRET_KEY || !authReady())
+    return errorPage(res, 'Customer login setup in progress', 'Please try again shortly.', 503);
+  const next = safeNext(req.body.next);
+  const verified = await verifyRecaptcha(req.body['g-recaptcha-response'], {
+    secret: process.env.RECAPTCHA_SECRET_KEY,
+    hostname: new URL(process.env.APP_BASE_URL).hostname
+  });
+  if (!verified) return res.status(400).send(env.render('login.html', {
+    next, recaptcha_site_key: process.env.RECAPTCHA_SITE_KEY,
+    error: 'Please complete the CAPTCHA and try again.'
+  }));
+  return startCognitoLogin(req, res, next);
 }));
 app.get('/account/callback', wrap(async (req, res) => {
   const flow = req.login.oauth;

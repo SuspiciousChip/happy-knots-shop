@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Sign in | The Happy Knots{% endblock %}
+{% block body %}
+<div class="announcement">Handmade crochet by Rakhi Dixit</div>
+<header class="site-header"><a href="/" class="logo"><img src="/static/assets/happy-knots-logo.png" alt="The Happy Knots"></a><nav><a href="/shop">Shop products</a></nav></header>
+<main class="login-page">
+  <section class="login-card">
+    <span class="eyebrow">Your Happy Knots account</span>
+    <h1>Sign in or create an account</h1>
+    <p>Verify below, then continue to our secure sign-in page.</p>
+    {% if error %}<p class="login-error" role="alert">{{ error }}</p>{% endif %}
+    <form method="post" action="/account/login">
+      <input type="hidden" name="next" value="{{ next }}">
+      <div class="g-recaptcha" data-sitekey="{{ recaptcha_site_key }}"></div>
+      <button class="button" type="submit">Continue to sign in</button>
+    </form>
+    <a href="/shop">Continue browsing</a>
+  </section>
+</main>
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+{% endblock %}

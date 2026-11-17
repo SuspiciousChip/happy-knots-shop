@@ -38,7 +38,12 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   env.addFilter('json_safe', x => new nunjucks.runtime.SafeString(JSON.stringify(x).replace(/</g, '\\u003c')));
   env.addFilter('urlencode', x => encodeURIComponent(x));
   const base = { product_json: [], products: [], csrf: 'csrf', customer: { email: 'test@example.com' }, profile: { addresses: [] }, orders: [], states: ['Rajasthan'] };
-  assert.match(env.render('shop.html', base), /href="\/shop"/);
+  const shopPage = env.render('shop.html', base);
+  assert.match(shopPage, /href="\/shop"/);
+  assert.match(shopPage, /data-reveal/);
+  assert.match(shopPage, /Terms and conditions/);
+  assert.equal((shopPage.match(/class="site-footer"/g) || []).length, 1);
+  assert.match(env.render('catalog.html', { ...base, tags: ['Door Hangings'] }), /class="site-footer"/);
   assert.match(env.render('catalog.html', { ...base, tags: ['Door Hangings'] }), /Door Hangings/);
   assert.match(env.render('product.html', { ...base, product: { id: 1, name: 'Example', price_paise: 200, tags: [], stock: 1 } }), /Add to bag/);
   assert.match(env.render('checkout.html', { ...base, checkout_token: 'token' }), /Delivery address/);

@@ -2,6 +2,10 @@
 
 Happy Knots is a customer storefront for handmade crochet. The active app is Node.js/Express with MongoDB Atlas. Customers can browse products without an account, sign up or sign in through Amazon Cognito, save delivery addresses, and place cash-on-delivery orders. A separate admin portal is planned later.
 
+## Customer CAPTCHA
+
+Customer sign-in and registration start at `/account/login`, where a Google reCAPTCHA v2 checkbox is verified by the Node server before redirecting to Cognito when both keys are configured. Create a **Challenge (v2) → “I'm not a robot” Checkbox** key in the reCAPTCHA admin console with `happyknots.shop` as an allowed domain. In Render **Environment**, add `RECAPTCHA_SITE_KEY` (public) and `RECAPTCHA_SECRET_KEY` (private), and set `APP_BASE_URL=https://www.happyknots.shop`. Redeploy after saving those variables. Keep the secret key out of Git and browser code. For local testing, register `localhost` on a separate development key and put both keys in the ignored `.env.mongo` file. The server rejects missing, expired, invalid, or wrong-hostname tokens. Without either key, the existing Cognito redirect remains active; with only one key, login returns a setup error.
+
 ## Project map
 
 | Folder | Purpose |
