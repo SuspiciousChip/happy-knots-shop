@@ -209,3 +209,13 @@ body{overflow-x:clip}
 @media(max-width:600px){.site-header .bag-button{min-width:48px;padding:8px;gap:5px}.cart-label{display:none}.cart-icon{width:20px;height:20px}.cart-count{min-width:21px;height:21px;padding:0 3px}}
 @media(max-width:350px){.site-header .bag-button{min-width:44px;gap:3px;padding:7px}.cart-icon{width:18px;height:18px}.cart-count{min-width:19px;height:19px;font-size:10px}}
 @media(prefers-reduced-motion:reduce){.site-header .bag-button{transition:none}.site-header .bag-button:hover,.site-header .bag-button:active{transform:none}}
+
+/* Category links use the same deep green, paper and quiet motion as the storefront. */
+.category-menu nav{gap:9px}
+.category-menu a{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:48px;padding:11px 14px;border:1px solid #cdd8cc;border-radius:10px;background-image:linear-gradient(90deg,var(--green) 50%,var(--paper) 50%);background-size:200% 100%;background-position:right center;color:var(--green);font-size:13px;font-weight:700;line-height:1.35;text-decoration:none;transition:background-position .38s cubic-bezier(.16,1,.3,1),color .25s,border-color .25s,box-shadow .25s}
+.category-menu a::after{content:'';width:7px;height:7px;border-top:1.5px solid currentColor;border-right:1.5px solid currentColor;flex:none;opacity:.65;transform:rotate(45deg);transition:transform .25s,opacity .25s}
+.category-menu a:is(:hover,:focus-visible,.selected){background-position:left center;border-color:var(--green);color:#fff;box-shadow:0 5px 14px #193e331a}
+.category-menu a:is(:hover,:focus-visible)::after{transform:translateX(3px) rotate(45deg);opacity:1}
+.category-menu a:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+@media(max-width:850px){.category-menu nav{gap:9px}.category-menu a{white-space:nowrap;min-height:44px;border-radius:999px}.category-menu a::after{display:none}}
+@media(prefers-reduced-motion:reduce){.category-menu a,.category-menu a::after{transition:none}}
