@@ -198,3 +198,14 @@ body{overflow-x:clip}
   .site-footer h2{transition:opacity .25s ease,transform .25s ease}
   .site-footer h2:hover{opacity:.72;transform:translateY(-2px)}
 }
+
+/* Cart action shared by the home, catalog and product headers. */
+.site-header .bag-button{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:46px;padding:8px 10px 8px 15px;border:1px solid var(--green);border-radius:999px;background:var(--green);color:#fff;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:none;box-shadow:0 3px 12px #193e331a;transition:background .2s ease,box-shadow .2s ease,transform .2s ease}
+.site-header .bag-button:hover{background:#285b48;box-shadow:0 7px 18px #193e3330;transform:translateY(-2px)}
+.site-header .bag-button:active{transform:translateY(0)}
+.site-header .bag-button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.cart-icon{display:block;width:21px;height:21px;flex:none}
+.cart-count{display:grid;place-items:center;min-width:25px;height:25px;padding:0 5px;border-radius:999px;background:#ead8ac;color:var(--deep);font-size:11px;font-weight:800;line-height:1}
+@media(max-width:600px){.site-header .bag-button{min-width:48px;padding:8px;gap:5px}.cart-label{display:none}.cart-icon{width:20px;height:20px}.cart-count{min-width:21px;height:21px;padding:0 3px}}
+@media(max-width:350px){.site-header .bag-button{min-width:44px;gap:3px;padding:7px}.cart-icon{width:18px;height:18px}.cart-count{min-width:19px;height:19px;font-size:10px}}
+@media(prefers-reduced-motion:reduce){.site-header .bag-button{transition:none}.site-header .bag-button:hover,.site-header .bag-button:active{transform:none}}

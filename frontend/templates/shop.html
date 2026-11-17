@@ -8,7 +8,7 @@
   <nav><a href="/shop">Shop</a><a href="#story">Our story</a></nav>
   {% set search_id = 'home-search' %}{% include 'search_box.html' %}
   <a class="account-link" href="{{ '/account' if customer else '/account/login' }}">{{ 'My account' if customer else 'Sign in' }}</a>
-  <button class="bag-button" id="bagButton">Bag <span id="bagCount">0</span></button>
+  {% include 'cart_button.html' %}
 </header>
 <main>
   <section class="hero" aria-labelledby="hero-title">
@@ -63,5 +63,5 @@
 </main>
 {% include 'bag.html' %}
 <script nonce="{{ csp_nonce }}">const products={{ product_json|json_safe }};</script>
-<script src="/static/shop-motion.js?v=viewport-flip-1" defer></script><script src="/static/shop.js"></script><script src="/static/search.js" defer></script>
+<script src="/static/shop-motion.js?v=viewport-flip-1" defer></script><script src="/static/shop.js?v=cart-1"></script><script src="/static/search.js" defer></script>
 {% endblock %}
