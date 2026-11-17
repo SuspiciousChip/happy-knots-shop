@@ -69,6 +69,13 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.match(shippingPage, /Northern and Eastern India: 7–8 business days/);
   assert.match(shippingPage, /orders below ₹1,000, shipping is ₹80/);
   assert.doesNotMatch(shippingPage, /P Palettes|SHIPPING_RATE_POLICY/);
+  const returnsPage = env.render('returns.html', base);
+  assert.match(shopPage, /href="\/returns"/);
+  assert.match(returnsPage, /damaged, defective, incorrect/);
+  assert.match(returnsPage, /An unboxing video can help us investigate, but it is not required/);
+  assert.match(returnsPage, /UPI or bank-transfer refund/);
+  assert.match(returnsPage, /B3, Snn Raj Etternia, near Tcis Silver County Road, Haralur, Bengaluru, Karnataka, India/);
+  assert.doesNotMatch(returnsPage, /P Palettes|ppalettes\.official|Jaipur/);
   assert.match(env.render('catalog.html', { ...base, tags: ['Door Hangings'] }), /class="site-footer"/);
   assert.match(env.render('catalog.html', { ...base, tags: ['Door Hangings'] }), /Door Hangings/);
   assert.match(env.render('product.html', { ...base, product: { id: 1, name: 'Example', price_paise: 200, tags: [], stock: 1 } }), /Add to bag/);
