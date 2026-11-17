@@ -1,4 +1,12 @@
 (() => {
+  for (const frame of document.querySelectorAll('.featured-tile, .product-photo, .product-detail-image')) {
+    const image = frame.querySelector('img');
+    if (!image || image.complete) continue;
+    frame.classList.add('image-loading');
+    const finish = () => frame.classList.remove('image-loading');
+    image.addEventListener('load', finish, { once: true });
+    image.addEventListener('error', finish, { once: true });
+  }
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const targets = document.querySelectorAll('[data-reveal], .catalog-layout h1, .catalog-layout .product, .product-detail-copy');
   if (!targets.length || !('IntersectionObserver' in window)) return;

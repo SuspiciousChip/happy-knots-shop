@@ -1,9 +1,10 @@
 {% extends 'base.html' %}
 {% block title %}Shop | The Happy Knots{% endblock %}
+{% block head %}<link rel="preload" href="/static/assets/featured/pink-crochet-bag.webp" as="image" fetchpriority="high">{% endblock %}
 {% block body %}
 <div class="announcement">Handmade crochet by Rakhi Dixit</div>
 <header class="site-header">
-  <a href="/" class="logo"><img src="/static/assets/happy-knots-logo.png" alt="The Happy Knots"></a>
+  <a href="/" class="logo"><img src="/static/assets/happy-knots-logo.webp" alt="The Happy Knots"></a>
   <nav><a href="/shop">Shop</a><a href="#story">Our story</a></nav>
   <a class="account-link" href="{{ '/account' if customer else '/account/login' }}">{{ 'My account' if customer else 'Sign in' }}</a>
   <button class="bag-button" id="bagButton">Bag <span id="bagCount">0</span></button>
@@ -26,15 +27,15 @@
     </div>
     <div class="featured-grid">
       <figure class="featured-tile" data-reveal>
-        <img src="/static/assets/featured/lotus-crochet-flowers.jpg" alt="Five pink and yellow crochet lotus flowers" loading="lazy">
+        <img src="/static/assets/featured/lotus-crochet-flowers.webp" alt="Five pink and yellow crochet lotus flowers" width="1200" height="1600" loading="lazy" decoding="async">
         <figcaption>Handmade flowers</figcaption>
       </figure>
       <figure class="featured-tile" data-reveal>
-        <img src="/static/assets/featured/blue-crochet-pouch.jpg" alt="Blue handmade crochet wristlet pouch" loading="lazy">
+        <img src="/static/assets/featured/blue-crochet-pouch.webp" alt="Blue handmade crochet wristlet pouch" width="1600" height="1600" loading="lazy" decoding="async">
         <figcaption>Everyday accessories</figcaption>
       </figure>
       <figure class="featured-tile" data-reveal>
-        <img src="/static/assets/featured/floral-door-hanging.jpg" alt="Pink floral crochet door hanging" loading="lazy">
+        <img src="/static/assets/featured/floral-door-hanging.webp" alt="Pink floral crochet door hanging" width="1200" height="1600" loading="lazy" decoding="async">
         <figcaption>Home accents</figcaption>
       </figure>
     </div>
@@ -47,7 +48,7 @@
     <div class="product-grid">
       {% for p in products %}
       <article class="product" data-reveal>
-        <a href="/products/{{ p.id }}"><div class="product-photo"><img src="{{ p.image or '/static/assets/935e89b0ce0944d3.jpg' }}" alt="{{ p.name }}"></div></a>
+        <a href="/products/{{ p.id }}"><div class="product-photo"><img src="{{ p.image or '/static/assets/935e89b0ce0944d3.jpg' }}" alt="{{ p.name }}" loading="lazy" decoding="async"></div></a>
         <div class="product-info"><small>{{ p.tags|join(', ') }}</small><h3><a href="/products/{{ p.id }}">{{ p.name }}</a></h3><p>{{ p.description }}</p><div class="product-bottom"><strong>₹{{ p.price_paise|money }}</strong><button class="button" data-add="{{ p.id }}" {% if p.stock < 1 %}disabled{% endif %}>{{ 'Sold out' if p.stock < 1 else 'Add to bag' }}</button></div></div>
       </article>
       {% else %}<p>Handmade pieces are coming soon.</p>{% endfor %}
@@ -55,11 +56,11 @@
     <a class="button" href="/shop" style="margin-top:32px">Shop all products →</a>
   </section>
   <section class="story" id="story" aria-labelledby="story-title">
-    <img src="/static/assets/featured/white-crochet-lilies.jpg" alt="White handmade crochet lily bouquet" loading="lazy">
+    <img src="/static/assets/featured/white-crochet-lilies.webp" alt="White handmade crochet lily bouquet" width="1200" height="1600" loading="lazy" decoding="async">
     <div data-reveal><span class="eyebrow">Behind every stitch</span><h2 id="story-title">Made by hand,<br>with heart.</h2><p>The Happy Knots is Rakhi Dixit’s creative home for playful handmade crochet. Each piece begins with a thread and grows into something full of colour and care.</p></div>
   </section>
 </main>
 {% include 'bag.html' %}
 <script nonce="{{ csp_nonce }}">const products={{ product_json|json_safe }};</script>
-<script src="/static/shop.js"></script>
+<script src="/static/shop-motion.js" defer></script><script src="/static/shop.js"></script>
 {% endblock %}

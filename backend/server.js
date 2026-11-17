@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import express from 'express';
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import nunjucks from 'nunjucks';
 import { MongoClient } from 'mongodb';
@@ -37,7 +38,7 @@ function resolvedMongoUri() {
   options.set('tls', 'true');
   return `mongodb://${parsed.username}:${parsed.password}@${members.join(',')}/${process.env.MONGODB_DB || 'happy_knots'}?${options}`;
 }
-const connection = new MongoClient(resolvedMongoUri(), { serverSelectionTimeoutMS: 10000 });
+const connection = new MongoClient(resolvedMongoUri(), { serverSelectionTimeoutMS: 10000, maxPoolSize: 20, waitQueueTimeoutMS: 5000 });
 const database = connection.db(process.env.MONGODB_DB || 'happy_knots');
 const products = database.collection('products');
 const orders = database.collection('orders');
@@ -53,7 +54,16 @@ const render = (res, name, data = {}) => res.send(env.render(name, { csrf: res.l
 env.addFilter('money', n => (Number(n || 0) / 100).toFixed(2));
 env.addFilter('json_safe', x => new nunjucks.runtime.SafeString(JSON.stringify(x).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')));
 env.addFilter('urlencode', x => encodeURIComponent(x));
-app.use('/static', express.static(path.join(projectRoot, 'frontend', 'static'), { maxAge: '1h' }));
+app.use(compression({ threshold: 1024 }));
+app.use('/static', express.static(path.join(projectRoot, 'frontend', 'static'), {
+  maxAge: '1h',
+  setHeaders(res, filePath) {
+    if (/\.(?:webp|avif|woff2)$/i.test(filePath))
+      res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=604800');
+    else
+      res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+  }
+}));
 app.use(express.urlencoded({ extended: false, limit: '128kb' }));
 app.use(cookieParser());
 app.use((req, res, next) => {
@@ -85,13 +95,13 @@ async function nextId(name, session) {
   const result = await counters.findOneAndUpdate({ _id: name }, { $inc: { value: 1 } }, { upsert: true, returnDocument: 'after', session });
   return result.value;
 }
-async function catalog(activeOnly = false) { return products.find(activeOnly ? { active: 1 } : {}).sort({ id: -1 }).toArray(); }
+async function catalog() { return products.find({ active: 1 }).project({ id: 1, name: 1, tags: 1, category: 1, description: 1, price_paise: 1, image: 1, stock: 1 }).sort({ id: -1 }).toArray(); }
 const tagNames = ['Personal Accessories & Clothing', 'Door Hangings', 'Wall Hangings', 'Home Decor'];
 const tagsFor = p => Array.isArray(p.tags) ? p.tags.filter(t => tagNames.includes(t)) : tagNames.includes(p.category) ? [p.category] : [];
 const publicProduct = p => ({ id: p.id, name: p.name, tags: tagsFor(p), description: p.description, price_paise: p.price_paise, image: p.image, stock: p.stock });
 app.get('/', wrap(async (req, res) => {
-  const listing = (await catalog(true)).slice(0, 6);
-  render(res, 'shop.html', { products: listing.map(publicProduct), product_json: (await catalog(true)).map(publicProduct) });
+  const listing = (await catalog()).map(publicProduct);
+  render(res, 'shop.html', { products: listing.slice(0, 6), product_json: listing });
 }));
 app.get('/contact', (_req, res) => render(res, 'contact.html'));
 app.get('/terms', (_req, res) => render(res, 'terms.html'));
@@ -99,19 +109,26 @@ app.get('/privacy', (_req, res) => render(res, 'privacy.html'));
 app.get('/shipping', (_req, res) => render(res, 'shipping.html'));
 app.get('/returns', (_req, res) => render(res, 'returns.html'));
 app.get('/shop', wrap(async (req, res) => {
-  const listing = (await catalog(true)).map(publicProduct);
+  const listing = (await catalog()).map(publicProduct);
   const tag = tagNames.includes(req.query.category) ? req.query.category : null;
   render(res, 'catalog.html', { products: tag ? listing.filter(p => p.tags.includes(tag)) : listing, product_json: listing, tags: tagNames, selected_tag: tag });
 }));
 app.get('/products/:id', wrap(async (req, res) => {
   const id = Number(req.params.id);
-  const product = Number.isSafeInteger(id) ? await products.findOne({ id, active: 1 }) : null;
+  if (!Number.isSafeInteger(id) || id < 1) return res.sendStatus(404);
+  const [product, listing] = await Promise.all([
+    products.findOne({ id, active: 1 }, { projection: { id: 1, name: 1, tags: 1, category: 1, description: 1, price_paise: 1, image: 1, stock: 1 } }),
+    catalog()
+  ]);
   if (!product) return res.sendStatus(404);
-  render(res, 'product.html', { product: publicProduct(product), product_json: (await catalog(true)).map(publicProduct) });
+  render(res, 'product.html', { product: publicProduct(product), product_json: listing.map(publicProduct) });
 }));
 app.get('/checkout', customerOnly, wrap(async (req, res) => {
-  const profile = await customers.findOne({ _id: res.locals.customer.sub });
-  render(res, 'checkout.html', { profile: { addresses: (profile?.addresses || []).filter(isCompleteAddress) }, product_json: (await catalog(true)).map(publicProduct), checkout_token: sign(random()), shipping_threshold_paise: FREE_SHIPPING_THRESHOLD_PAISE, standard_shipping_paise: STANDARD_SHIPPING_PAISE });
+  const [profile, listing] = await Promise.all([
+    customers.findOne({ _id: res.locals.customer.sub }, { projection: { addresses: 1 } }),
+    catalog()
+  ]);
+  render(res, 'checkout.html', { profile: { addresses: (profile?.addresses || []).filter(isCompleteAddress) }, product_json: listing.map(publicProduct), checkout_token: sign(random()), shipping_threshold_paise: FREE_SHIPPING_THRESHOLD_PAISE, standard_shipping_paise: STANDARD_SHIPPING_PAISE });
 }));
 app.post('/orders', customerOnly, csrf, wrap(async (req, res) => {
   const profile = await customers.findOne({ _id: res.locals.customer.sub });
@@ -173,11 +190,14 @@ app.post('/orders', customerOnly, csrf, wrap(async (req, res) => {
 }));
 
 const authReady = () => ['COGNITO_ISSUER', 'COGNITO_CLIENT_ID', 'COGNITO_CLIENT_SECRET', 'COGNITO_DOMAIN', 'APP_BASE_URL'].every(k => process.env[k]);
-let oidcConfig;
+let oidcConfigPromise;
 async function cognito() {
   if (!authReady()) return null;
-  if (!oidcConfig) oidcConfig = await oidc.discovery(new URL(process.env.COGNITO_ISSUER), process.env.COGNITO_CLIENT_ID, process.env.COGNITO_CLIENT_SECRET, oidc.ClientSecretPost());
-  return oidcConfig;
+  if (!oidcConfigPromise) {
+    oidcConfigPromise = oidc.discovery(new URL(process.env.COGNITO_ISSUER), process.env.COGNITO_CLIENT_ID, process.env.COGNITO_CLIENT_SECRET, oidc.ClientSecretPost(), { timeout: 8 })
+      .catch(error => { oidcConfigPromise = null; throw error; });
+  }
+  return oidcConfigPromise;
 }
 const safeNext = value => typeof value === 'string' && /^\/(?:account|checkout|shop|products)(?:[/?#]|$)/.test(value) && !value.includes(String.fromCharCode(92)) ? value : '/account';
 const loginRateLimit = async (req, res, next) => {
@@ -261,9 +281,15 @@ app.post('/account/logout', csrf, wrap(async (req, res) => {
   res.redirect('/');
 }));
 app.get('/account', customerOnly, wrap(async (req, res) => {
-  const profile = await customers.findOne({ _id: res.locals.customer.sub });
-  const history = await orders.find({ customer_sub: res.locals.customer.sub }).sort({ id: -1 }).limit(30).toArray();
-  render(res, 'account.html', { profile: profile || { addresses: [] }, orders: history, states: INDIAN_STATES_AND_UTS });
+  const before = Number(req.query.before);
+  const orderFilter = { customer_sub: res.locals.customer.sub };
+  if (Number.isSafeInteger(before) && before > 0) orderFilter.id = { $lt: before };
+  const [profile, history] = await Promise.all([
+    customers.findOne({ _id: res.locals.customer.sub }, { projection: { addresses: 1 } }),
+    orders.find(orderFilter).project({ id: 1, created_at: 1, status: 1, subtotal_paise: 1, total_paise: 1 }).sort({ id: -1 }).limit(31).toArray()
+  ]);
+  const page = history.slice(0, 30);
+  render(res, 'account.html', { profile: profile || { addresses: [] }, orders: page, next_cursor: history.length > 30 ? page.at(-1).id : null, states: INDIAN_STATES_AND_UTS });
 }));
 app.post('/account/addresses', customerOnly, csrf, wrap(async (req, res) => {
   const fields = parseAddress(req.body);
@@ -296,7 +322,7 @@ export async function init() {
   const marker = await database.collection('migration').findOne({ _id: 'happy-knots' });
   if (marker?.state !== 'READY') throw new Error('Atlas migration is not verified; run migrate-to-atlas.js first');
   await Promise.all([
-    products.createIndex({ id: 1 }, { unique: true }), orders.createIndex({ id: 1 }, { unique: true }),
+    products.createIndex({ id: 1 }, { unique: true }), products.createIndex({ active: 1, id: -1 }), orders.createIndex({ id: 1 }, { unique: true }),
     orders.createIndex({ id: -1 }), orders.createIndex({ customer_sub: 1, id: -1 }), categories.createIndex({ email: 1 }, { unique: true }),
     sessions.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
     loginLimits.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 })]);
