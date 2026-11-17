@@ -28,7 +28,6 @@
         name: 'The Happy Knots',
         description: 'Simulated test payment',
         order_id: button.dataset.orderId,
-        prefill: { email: button.dataset.email },
         handler(result) {
           for (const name of ['razorpay_order_id', 'razorpay_payment_id', 'razorpay_signature'])
             form.elements.namedItem(name).value = result[name] || '';

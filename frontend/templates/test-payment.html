@@ -12,7 +12,7 @@
     <h1>Try a simulated payment.</h1>
     <p>Total: <strong>₹{{ payment.amount_paise|money }}</strong></p>
     <p>This tests Razorpay Checkout only. It will not place a Happy Knots order or charge real money.</p>
-    <button class="button" id="payTest" data-key="{{ key_id }}" data-order-id="{{ payment.razorpay_order_id }}" data-amount="{{ payment.amount_paise }}" data-email="{{ email }}">Open Razorpay test checkout</button>
+    <button class="button" id="payTest" data-key="{{ key_id }}" data-order-id="{{ payment.razorpay_order_id }}" data-amount="{{ payment.amount_paise }}">Open Razorpay test checkout</button>
     <p id="paymentMessage" role="status" aria-live="polite"></p>
     <form id="paymentResult" action="/payments/test/{{ token }}/verify" method="post" hidden>
       <input type="hidden" name="csrf" value="{{ csrf }}">

@@ -147,7 +147,7 @@ app.post('/payments/test/start', testPaymentsOnly, customerOnly, csrf, wrap(asyn
   if (!isCompleteAddress(address)) return errorPage(res, 'Complete delivery address required', 'Save a complete delivery address before testing a payment.', 400);
   let submitted;
   try { submitted = JSON.parse(req.body.items || '[]'); } catch { return res.sendStatus(400); }
-  if (!Array.isArray(submitted) || !submitted.length || submitted.length > 50) return res.sendStatus(400);
+  if (!Array.isArray(submitted) || submitted.length > 50) return res.sendStatus(400);
   const quantities = new Map();
   for (const item of submitted) {
     if (!Number.isSafeInteger(item?.id) || item.id < 1 || !Number.isSafeInteger(item?.quantity) || item.quantity < 1 || item.quantity > 99) return res.sendStatus(400);
@@ -158,12 +158,13 @@ app.post('/payments/test/start', testPaymentsOnly, customerOnly, csrf, wrap(asyn
   if (selected.length !== quantities.size || selected.some(p => !p.active || p.stock < quantities.get(p.id)))
     return errorPage(res, 'Bag changed', 'An item is no longer available in that quantity. Please review your bag.', 409);
   const subtotal = selected.reduce((sum, p) => sum + p.price_paise * quantities.get(p.id), 0);
-  if (!Number.isSafeInteger(subtotal) || subtotal < 100) return res.sendStatus(400);
-  const amountPaise = subtotal + shippingPaise(subtotal);
+  if (!Number.isSafeInteger(subtotal) || (submitted.length && subtotal < 100)) return res.sendStatus(400);
+  const isDemo = submitted.length === 0;
+  const amountPaise = isDemo ? 100 : subtotal + shippingPaise(subtotal);
   const token = random();
   const razorpayOrder = await createTestOrder({ amountPaise, receipt: `hk_test_${crypto.randomBytes(10).toString('hex')}` });
   await testPayments.insertOne({ _id: digest(token), customer_sub: res.locals.customer.sub,
-    razorpay_order_id: razorpayOrder.id, amount_paise: amountPaise, status: 'pending',
+    razorpay_order_id: razorpayOrder.id, amount_paise: amountPaise, is_demo: isDemo, status: 'pending',
     address_id: address.address_id, items: selected.map(p => ({ product_id: p.id, quantity: quantities.get(p.id), unit_price_paise: p.price_paise })),
     created_at: now(), expires_at: new Date(Date.now() + 60 * 60 * 1000) });
   res.redirect(`/payments/test/${token}`);
@@ -171,7 +172,7 @@ app.post('/payments/test/start', testPaymentsOnly, customerOnly, csrf, wrap(asyn
 app.get('/payments/test/:token', testPaymentsOnly, customerOnly, wrap(async (req, res) => {
   const payment = await testPayments.findOne({ _id: digest(req.params.token), customer_sub: res.locals.customer.sub, expires_at: { $gt: new Date() } });
   if (!payment) return res.sendStatus(404);
-  render(res, 'test-payment.html', { payment, token: req.params.token, key_id: testCredentials().keyId, email: res.locals.customer.email });
+  render(res, 'test-payment.html', { payment, token: req.params.token, key_id: testCredentials().keyId });
 }));
 app.post('/payments/test/:token/verify', testPaymentsOnly, customerOnly, csrf, wrap(async (req, res) => {
   const pending = await testPayments.findOne({ _id: digest(req.params.token), customer_sub: res.locals.customer.sub, expires_at: { $gt: new Date() } });

@@ -83,9 +83,10 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.match(checkoutPage, /Delivery address/);
   assert.match(checkoutPage, /data-threshold="100000" data-standard-fee="8000"/);
   assert.match(checkoutPage, /Total due on delivery/);
-  assert.doesNotMatch(checkoutPage, /Try Razorpay test payment/);
+  assert.doesNotMatch(checkoutPage, /Open Razorpay test checkout/);
   const testCheckout = env.render('checkout.html', { ...base, checkout_token: 'token', shipping_threshold_paise: 100000, standard_shipping_paise: 8000, razorpay_test_checkout: true });
-  assert.match(testCheckout, /Try Razorpay test payment/);
+  assert.match(testCheckout, /Open Razorpay test checkout/);
+  assert.match(testCheckout, /₹1 demo/);
   const testPayment = env.render('test-payment.html', { ...base, payment: { status: 'pending', amount_paise: 100, razorpay_order_id: 'order_test' }, token: 'test-token', key_id: 'rzp_test_example', email: base.customer.email });
   assert.match(testPayment, /will not place a Happy Knots order or charge real money/);
   assert.doesNotMatch(testPayment, /example-secret/);
