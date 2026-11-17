@@ -1,0 +1,6 @@
+<form class="shop-search" action="/shop" method="get" role="search" data-product-search>
+  <label class="sr-only" for="{{ search_id }}">Search products</label>
+  <input id="{{ search_id }}" name="q" type="search" value="{{ search_query or '' }}" placeholder="Search bags, flowers..." autocomplete="off" aria-autocomplete="list" aria-controls="{{ search_id }}-suggestions" aria-expanded="false" maxlength="80">
+  <button type="submit" aria-label="Search products">Search</button>
+  <div class="search-suggestions" id="{{ search_id }}-suggestions" role="listbox" hidden></div>
+</form>

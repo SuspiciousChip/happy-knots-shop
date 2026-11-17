@@ -13,6 +13,7 @@ import * as oidc from 'openid-client';
 import { INDIAN_STATES_AND_UTS, parseAddress, isCompleteAddress, formatAddress } from './address.js';
 import { verifyRecaptcha } from './recaptcha.js';
 import { shippingPaise, FREE_SHIPPING_THRESHOLD_PAISE, STANDARD_SHIPPING_PAISE } from './shipping.js';
+import { searchProducts } from './search.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(root, '..');
@@ -111,7 +112,9 @@ app.get('/returns', (_req, res) => render(res, 'returns.html'));
 app.get('/shop', wrap(async (req, res) => {
   const listing = (await catalog()).map(publicProduct);
   const tag = tagNames.includes(req.query.category) ? req.query.category : null;
-  render(res, 'catalog.html', { products: tag ? listing.filter(p => p.tags.includes(tag)) : listing, product_json: listing, tags: tagNames, selected_tag: tag });
+  const searchQuery = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 80) : '';
+  const filtered = searchProducts(tag ? listing.filter(p => p.tags.includes(tag)) : listing, searchQuery);
+  render(res, 'catalog.html', { products: filtered, product_json: listing, tags: tagNames, selected_tag: tag, search_query: searchQuery });
 }));
 app.get('/products/:id', wrap(async (req, res) => {
   const id = Number(req.params.id);
