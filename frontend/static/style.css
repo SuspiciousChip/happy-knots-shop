@@ -110,3 +110,78 @@
 .search-suggestions a{display:block;padding:10px 12px;border-radius:8px;font-size:13px}
 .search-suggestions a:hover,.search-suggestions a:focus{background:#eaf0e9;outline:0}
 @media(max-width:760px){.site-header{height:auto;min-height:92px;flex-wrap:wrap;gap:8px;padding-block:10px}.site-header .shop-search{order:5;max-width:none;flex-basis:100%;margin-bottom:4px}.site-header nav{gap:15px}}
+
+/* Keep shopping, search and account controls usable across device widths. */
+html,body{max-width:100%}
+body{overflow-x:clip}
+.site-header{gap:clamp(12px,2vw,30px)}
+.site-header nav{flex-shrink:0}
+.site-header .shop-search{min-width:150px}
+.site-header .account-link,.site-header .bag-button{flex-shrink:0}
+.site-header .bag-button{min-height:44px}
+.catalog-layout,.product-detail,.checkout-page,.footer-main{min-width:0}
+.catalog-results,.product-detail-copy,.checkout-page>div,.checkout-summary{min-width:0}
+.product-info,.address-choice span,.account-order-row>*{min-width:0;overflow-wrap:anywhere}
+@media(max-width:1100px){
+  .site-header{height:auto;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:0 16px;padding:10px clamp(16px,4vw,40px)}
+  .site-header .logo{grid-column:1;grid-row:1}
+  .site-header .account-link{grid-column:2;grid-row:1;justify-self:end}
+  .site-header .bag-button{grid-column:3;grid-row:1;justify-self:end}
+  .site-header nav{display:flex;grid-column:1/-1;grid-row:2;align-items:center;gap:24px;border-top:1px solid #e5e7dd;margin-top:5px;padding:3px 0}
+  .site-header nav a{display:flex;align-items:center;min-height:44px}
+  .site-header .shop-search{grid-column:1/-1;grid-row:3;width:100%;max-width:none;min-width:0;margin:4px 0 6px}
+  .catalog-layout{gap:30px;grid-template-columns:210px minmax(0,1fr)}
+  .checkout-page{gap:32px;grid-template-columns:minmax(0,1fr) 300px}
+}
+@media(max-width:850px){
+  .catalog-layout,.product-detail,.checkout-page{grid-template-columns:minmax(0,1fr)}
+  .hero{min-height:0}
+  .hero-image{height:clamp(360px,60vw,580px)}
+  .hero-copy{padding-block:clamp(55px,8vw,90px)}
+  .story img{max-height:620px}
+  .category-menu nav{gap:6px;padding-bottom:6px;overscroll-behavior-inline:contain}
+  .category-menu a{display:flex;align-items:center;min-height:44px}
+  .checkout-summary{position:static}
+  .product-detail-image{max-width:680px}
+}
+@media(max-width:600px){
+  .site-header{gap:0 8px;padding-inline:16px}
+  .logo img{width:105px;height:64px}
+  .site-header nav{display:flex;gap:20px}
+  .site-header .account-link{padding-inline:4px}
+  .site-header .bag-button{padding:10px 12px}
+  .hero h1{font-size:clamp(48px,13vw,70px)}
+  .hero-image{height:clamp(350px,112vw,520px)}
+  .hero-copy{padding:54px 20px 65px}
+  .hero-copy>.button{width:100%;text-align:center}
+  .featured-work{padding-block:65px 75px}
+  .featured-intro h2,.section-head h2{font-size:clamp(42px,11vw,62px)}
+  .catalog{padding-block:70px 85px}
+  .catalog-layout{padding-block:38px 75px}
+  .product-detail{gap:24px;padding-bottom:80px}
+  .product-detail-copy{padding-top:0}
+  .product-detail-copy h1{font-size:clamp(40px,11vw,58px)}
+  .product-bottom{flex-wrap:wrap}
+  .product-bottom .button{min-height:44px}
+  .checkout-page{margin-block:35px 80px;gap:28px}
+  .checkout-summary{padding:20px}
+  .account-page{width:min(100% - 32px,960px)}
+  .account-nav{gap:20px}
+  .account-order-row{grid-template-columns:minmax(0,1fr) auto;gap:10px 16px}
+  .account-order-row .badge{justify-self:end}
+  .account-order-row .order-action{display:none}
+  .saved-address{gap:12px}
+  .footer-main{grid-template-columns:minmax(0,1fr);gap:32px;padding-block:54px}
+  .footer-feature{grid-column:auto}
+  .footer-column{gap:12px}
+  .footer-column a{display:flex;align-items:center;min-height:36px}
+}
+@media(max-width:350px){
+  .site-header{grid-template-columns:minmax(0,1fr) auto auto}
+  .site-header .account-link{font-size:12px}
+  .site-header .bag-button{font-size:12px;padding-inline:8px}
+  .logo img{width:88px}
+  .announcement{font-size:9px;letter-spacing:.1em}
+  .bag-item{grid-template-columns:55px minmax(0,1fr) auto;gap:8px}
+  .bag-item img{width:55px;height:60px}
+}
