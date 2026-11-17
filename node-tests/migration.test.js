@@ -8,6 +8,14 @@ process.env.ADMIN_EMAIL ||= 'owner@example.invalid';
 process.env.ADMIN_PASSWORD_HASH ||= 'scrypt:32768:8:1$test$' + '0'.repeat(128);
 const { classify } = await import('../database/migrate-to-atlas.js');
 const { hasConfiguredAuth, mergeAuthConfig } = await import('../database/setup-customer-auth.js');
+const { shippingPaise } = await import('../backend/shipping.js');
+
+test('shipping is ₹80 below ₹1,000 and free from ₹1,000', () => {
+  assert.equal(shippingPaise(99999), 8000);
+  assert.equal(shippingPaise(100000), 0);
+  assert.equal(shippingPaise(150000), 0);
+  assert.throws(() => shippingPaise(-1), RangeError);
+});
 
 test('DynamoDB records map to the Node collections without losing order lines', () => {
   const rows = [
@@ -53,21 +61,32 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   const privacyPage = env.render('privacy.html', base);
   assert.match(shopPage, /href="\/privacy"/);
   assert.match(privacyPage, /mailto:h4appy\.knots\.official@gmail\.com/);
-  assert.match(privacyPage, /B3,Snn Raj Etternia near Tcis silver county road harulur/);
+  assert.match(privacyPage, /B3, Snn Raj Etternia, near Tcis Silver County Road, Haralur, Bengaluru, Karnataka, India/);
   assert.doesNotMatch(privacyPage, /P Palettes|ppalettes\.com|GoKwik|Microsoft Clarity/);
+  const shippingPage = env.render('shipping.html', base);
+  assert.match(shopPage, /href="\/shipping"/);
+  assert.match(shippingPage, /Bengaluru and nearby cities: 2–3 business days/);
+  assert.match(shippingPage, /Northern and Eastern India: 7–8 business days/);
+  assert.match(shippingPage, /orders below ₹1,000, shipping is ₹80/);
+  assert.doesNotMatch(shippingPage, /P Palettes|SHIPPING_RATE_POLICY/);
   assert.match(env.render('catalog.html', { ...base, tags: ['Door Hangings'] }), /class="site-footer"/);
   assert.match(env.render('catalog.html', { ...base, tags: ['Door Hangings'] }), /Door Hangings/);
   assert.match(env.render('product.html', { ...base, product: { id: 1, name: 'Example', price_paise: 200, tags: [], stock: 1 } }), /Add to bag/);
-  assert.match(env.render('checkout.html', { ...base, checkout_token: 'token' }), /Delivery address/);
+  const checkoutPage = env.render('checkout.html', { ...base, checkout_token: 'token', shipping_threshold_paise: 100000, standard_shipping_paise: 8000 });
+  assert.match(checkoutPage, /Delivery address/);
+  assert.match(checkoutPage, /data-threshold="100000" data-standard-fee="8000"/);
+  assert.match(checkoutPage, /Total due on delivery/);
   assert.match(env.render('account.html', base), /name="pincode"/);
   assert.match(env.render('account.html', base), /name="city"/);
   assert.match(env.render('account.html', base), /name="landmark"/);
   assert.match(env.render('account.html', base), /\+91 is already included/);
   assert.match(env.render('account.html', base), /Select a state or UT/);
   assert.doesNotMatch(env.render('account.html', base).split('</title>')[0], /<script>/);
-  const order = { id: 11, subtotal_paise: 2400, items: [{ product_name: 'Flower', quantity: 2, unit_price_paise: 1200 }] };
+  const order = { id: 11, subtotal_paise: 2400, shipping_paise: 8000, total_paise: 10400, items: [{ product_name: 'Flower', quantity: 2, unit_price_paise: 1200 }] };
   const orderPage = env.render('customer_order.html', { ...base, order, clear_cart: true });
   assert.match(orderPage, /₹24\.00/);
+  assert.match(orderPage, /₹80\.00/);
+  assert.match(orderPage, /₹104\.00/);
   assert.match(orderPage, /localStorage\.removeItem\('happy-knots-cart'\)/);
   assert.doesNotMatch(env.render('customer_order.html', { ...base, order, clear_cart: false }), /localStorage\.removeItem/);
 });

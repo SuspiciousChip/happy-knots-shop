@@ -93,3 +93,5 @@
 .legal-copy p{margin:0 0 18px}
 .legal-copy ul{padding-left:24px;margin:0 0 26px}
 .legal-copy li{padding-left:6px;margin:5px 0}
+.checkout-summary .checkout-grand-total{border-top:1px solid #ccd2c6;padding-top:18px;font-weight:700;color:var(--green)}
+.checkout-summary a{text-decoration:underline;text-underline-offset:3px}

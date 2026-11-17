@@ -11,6 +11,7 @@ import dotenv from 'dotenv';
 import * as oidc from 'openid-client';
 import { INDIAN_STATES_AND_UTS, parseAddress, isCompleteAddress, formatAddress } from './address.js';
 import { verifyRecaptcha } from './recaptcha.js';
+import { shippingPaise, FREE_SHIPPING_THRESHOLD_PAISE, STANDARD_SHIPPING_PAISE } from './shipping.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(root, '..');
@@ -95,6 +96,7 @@ app.get('/', wrap(async (req, res) => {
 app.get('/contact', (_req, res) => render(res, 'contact.html'));
 app.get('/terms', (_req, res) => render(res, 'terms.html'));
 app.get('/privacy', (_req, res) => render(res, 'privacy.html'));
+app.get('/shipping', (_req, res) => render(res, 'shipping.html'));
 app.get('/shop', wrap(async (req, res) => {
   const listing = (await catalog(true)).map(publicProduct);
   const tag = tagNames.includes(req.query.category) ? req.query.category : null;
@@ -108,7 +110,7 @@ app.get('/products/:id', wrap(async (req, res) => {
 }));
 app.get('/checkout', customerOnly, wrap(async (req, res) => {
   const profile = await customers.findOne({ _id: res.locals.customer.sub });
-  render(res, 'checkout.html', { profile: { addresses: (profile?.addresses || []).filter(isCompleteAddress) }, product_json: (await catalog(true)).map(publicProduct), checkout_token: sign(random()) });
+  render(res, 'checkout.html', { profile: { addresses: (profile?.addresses || []).filter(isCompleteAddress) }, product_json: (await catalog(true)).map(publicProduct), checkout_token: sign(random()), shipping_threshold_paise: FREE_SHIPPING_THRESHOLD_PAISE, standard_shipping_paise: STANDARD_SHIPPING_PAISE });
 }));
 app.post('/orders', customerOnly, csrf, wrap(async (req, res) => {
   const profile = await customers.findOne({ _id: res.locals.customer.sub });
@@ -143,17 +145,19 @@ app.post('/orders', customerOnly, csrf, wrap(async (req, res) => {
       orderId = await nextId('orders', transaction);
       const items = selected.map(p => ({ product_id: p.id, product_name: p.name, unit_price_paise: p.price_paise, quantity: quantities.get(p.id) }));
       const subtotal = items.reduce((n, item) => n + item.unit_price_paise * item.quantity, 0);
+      const shipping = shippingPaise(subtotal);
+      const total = subtotal + shipping;
       await orders.insertOne({ id: orderId, customer_sub: res.locals.customer.sub, customer_name: customer.name, email: customer.email, phone: customer.phone,
         address: customer.address, address_line1: customer.address_line1, address_line2: customer.address_line2,
         landmark: customer.landmark, city: customer.city, state: customer.state, pincode: customer.pincode,
-        subtotal_paise: subtotal, status: 'new', payment_method: 'cash_on_delivery', created_at: now(), items }, { session: transaction });
+        subtotal_paise: subtotal, shipping_paise: shipping, total_paise: total, status: 'new', payment_method: 'cash_on_delivery', created_at: now(), items }, { session: transaction });
       for (const p of selected) {
         const qty = quantities.get(p.id);
         const result = await products.updateOne({ id: p.id, active: 1, stock: { $gte: qty }, version: p.version }, { $inc: { stock: -qty, version: 1, units: qty, sales_revenue: qty * p.price_paise } }, { session: transaction });
         if (result.matchedCount !== 1) throw Object.assign(new Error('An item changed. Please review your bag.'), { status: 409 });
       }
-      await stats.updateOne({ _id: 'shop' }, { $inc: { orders: 1, revenue: subtotal } }, { upsert: true, session: transaction });
-      await categories.updateOne({ email: customer.email }, { $set: { customer_name: customer.name }, $inc: { orders: 1, spent: subtotal } }, { upsert: true, session: transaction });
+      await stats.updateOne({ _id: 'shop' }, { $inc: { orders: 1, revenue: total } }, { upsert: true, session: transaction });
+      await categories.updateOne({ email: customer.email }, { $set: { customer_name: customer.name }, $inc: { orders: 1, spent: total } }, { upsert: true, session: transaction });
       await receipts.insertOne({ _id: receiptKey, fingerprint, order_id: orderId }, { session: transaction });
     });
   } catch (error) {

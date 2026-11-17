@@ -6,7 +6,9 @@
   <div class="account-intro"><h1>Order #{{ order.id }}</h1><p>{{ order.created_at | truncate(10, true, '') }} <span class="badge">{{ order.status|title }}</span></p></div>
   <section class="account-section"><h2>Your items</h2>
     {% for item in order['items'] %}<div class="customer-line"><div><h3>{{ item.product_name }}</h3><p>Quantity {{ item.quantity }}</p></div><strong>₹{{ (item.unit_price_paise * item.quantity) | money }}</strong></div>{% endfor %}
-    <p class="customer-total"><span>Total</span><strong>₹{{ order.subtotal_paise | money }}</strong></p>
+    <p class="customer-total"><span>Items</span><strong>₹{{ order.subtotal_paise | money }}</strong></p>
+    <p class="customer-total"><span>Shipping</span><strong>{{ 'Free' if not order.shipping_paise else '₹' + (order.shipping_paise | money) }}</strong></p>
+    <p class="customer-total"><span>Total due on delivery</span><strong>₹{{ (order.total_paise or order.subtotal_paise) | money }}</strong></p>
     <p>Payment: cash on delivery.</p>
   </section>
   <section class="account-section"><h2>Delivery details</h2><p>{{ order.customer_name }}<br>{{ order.phone }}</p><p class="address-lines">{{ order.address }}</p><p>{{ order.email }}</p></section>

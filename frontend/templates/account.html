@@ -20,7 +20,7 @@
       <a class="account-order-row" href="/account/orders/{{ order.id }}">
         <span><strong>Order #{{ order.id }}</strong><small>{{ order.created_at | truncate(10, true, '') }}</small></span>
         <span class="badge">{{ order.status|title }}</span>
-        <strong>₹{{ order.subtotal_paise | money }}</strong>
+        <strong>₹{{ (order.total_paise or order.subtotal_paise) | money }}</strong>
         <span class="order-action">View order</span>
       </a>
       {% endfor %}
