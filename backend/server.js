@@ -14,6 +14,7 @@ import { INDIAN_STATES_AND_UTS, parseAddress, isCompleteAddress, formatAddress }
 import { verifyRecaptcha } from './recaptcha.js';
 import { shippingPaise, FREE_SHIPPING_THRESHOLD_PAISE, STANDARD_SHIPPING_PAISE } from './shipping.js';
 import { searchProducts } from './search.js';
+import { createTestOrder, fetchTestPayment, isCapturedPayment, testCredentials, verifyPaymentSignature } from './razorpay.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(root, '..');
@@ -50,6 +51,7 @@ const sessions = database.collection('sessions');
 const loginLimits = database.collection('login_rate_limits');
 const customers = database.collection('customers');
 const categories = database.collection('customer_totals');
+const testPayments = database.collection('razorpay_test_payments');
 const env = nunjucks.configure(path.join(projectRoot, 'frontend', 'templates'), { autoescape: true, noCache: process.env.NODE_ENV !== 'production' });
 const render = (res, name, data = {}) => res.send(env.render(name, { csrf: res.locals.csrf, customer: res.locals.customer, ...data }));
 env.addFilter('money', n => (Number(n || 0) / 100).toFixed(2));
@@ -88,6 +90,11 @@ app.use(async (req, res, next) => {
   } catch (error) { next(error); }
 });
 const customerOnly = (req, res, next) => res.locals.customer ? next() : res.redirect('/account/login?next=' + encodeURIComponent(req.originalUrl));
+const testPaymentsReady = () => {
+  if (process.env.RENDER === 'true' || process.env.NODE_ENV === 'production' || process.env.RAZORPAY_TEST_CHECKOUT !== 'true') return false;
+  try { testCredentials(); return true; } catch { return false; }
+};
+const testPaymentsOnly = (_req, res, next) => testPaymentsReady() ? next() : res.sendStatus(404);
 const csrf = (req, res, next) => equal(req.body.csrf, req.login.csrf) ? next() : res.sendStatus(400);
 const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res)).catch(next);
 const now = () => new Date().toISOString();
@@ -131,7 +138,53 @@ app.get('/checkout', customerOnly, wrap(async (req, res) => {
     customers.findOne({ _id: res.locals.customer.sub }, { projection: { addresses: 1 } }),
     catalog()
   ]);
-  render(res, 'checkout.html', { profile: { addresses: (profile?.addresses || []).filter(isCompleteAddress) }, product_json: listing.map(publicProduct), checkout_token: sign(random()), shipping_threshold_paise: FREE_SHIPPING_THRESHOLD_PAISE, standard_shipping_paise: STANDARD_SHIPPING_PAISE });
+  render(res, 'checkout.html', { profile: { addresses: (profile?.addresses || []).filter(isCompleteAddress) }, product_json: listing.map(publicProduct), checkout_token: sign(random()), shipping_threshold_paise: FREE_SHIPPING_THRESHOLD_PAISE, standard_shipping_paise: STANDARD_SHIPPING_PAISE, razorpay_test_checkout: testPaymentsReady() });
+}));
+app.post('/payments/test/start', testPaymentsOnly, customerOnly, csrf, wrap(async (req, res) => {
+  if (!unsign(req.body.checkout_token)) return res.sendStatus(400);
+  const profile = await customers.findOne({ _id: res.locals.customer.sub }, { projection: { addresses: 1 } });
+  const address = profile?.addresses?.find(a => a.address_id === req.body.address_id);
+  if (!isCompleteAddress(address)) return errorPage(res, 'Complete delivery address required', 'Save a complete delivery address before testing a payment.', 400);
+  let submitted;
+  try { submitted = JSON.parse(req.body.items || '[]'); } catch { return res.sendStatus(400); }
+  if (!Array.isArray(submitted) || !submitted.length || submitted.length > 50) return res.sendStatus(400);
+  const quantities = new Map();
+  for (const item of submitted) {
+    if (!Number.isSafeInteger(item?.id) || item.id < 1 || !Number.isSafeInteger(item?.quantity) || item.quantity < 1 || item.quantity > 99) return res.sendStatus(400);
+    quantities.set(item.id, (quantities.get(item.id) || 0) + item.quantity);
+  }
+  if ([...quantities.values()].some(q => q > 99)) return res.sendStatus(400);
+  const selected = await products.find({ id: { $in: [...quantities.keys()] } }).toArray();
+  if (selected.length !== quantities.size || selected.some(p => !p.active || p.stock < quantities.get(p.id)))
+    return errorPage(res, 'Bag changed', 'An item is no longer available in that quantity. Please review your bag.', 409);
+  const subtotal = selected.reduce((sum, p) => sum + p.price_paise * quantities.get(p.id), 0);
+  if (!Number.isSafeInteger(subtotal) || subtotal < 100) return res.sendStatus(400);
+  const amountPaise = subtotal + shippingPaise(subtotal);
+  const token = random();
+  const razorpayOrder = await createTestOrder({ amountPaise, receipt: `hk_test_${crypto.randomBytes(10).toString('hex')}` });
+  await testPayments.insertOne({ _id: digest(token), customer_sub: res.locals.customer.sub,
+    razorpay_order_id: razorpayOrder.id, amount_paise: amountPaise, status: 'pending',
+    address_id: address.address_id, items: selected.map(p => ({ product_id: p.id, quantity: quantities.get(p.id), unit_price_paise: p.price_paise })),
+    created_at: now(), expires_at: new Date(Date.now() + 60 * 60 * 1000) });
+  res.redirect(`/payments/test/${token}`);
+}));
+app.get('/payments/test/:token', testPaymentsOnly, customerOnly, wrap(async (req, res) => {
+  const payment = await testPayments.findOne({ _id: digest(req.params.token), customer_sub: res.locals.customer.sub, expires_at: { $gt: new Date() } });
+  if (!payment) return res.sendStatus(404);
+  render(res, 'test-payment.html', { payment, token: req.params.token, key_id: testCredentials().keyId, email: res.locals.customer.email });
+}));
+app.post('/payments/test/:token/verify', testPaymentsOnly, customerOnly, csrf, wrap(async (req, res) => {
+  const pending = await testPayments.findOne({ _id: digest(req.params.token), customer_sub: res.locals.customer.sub, expires_at: { $gt: new Date() } });
+  if (!pending) return res.sendStatus(404);
+  if (pending.status === 'paid') return res.redirect(`/payments/test/${req.params.token}`);
+  if (pending.status !== 'pending' || req.body.razorpay_order_id !== pending.razorpay_order_id ||
+      !verifyPaymentSignature({ orderId: pending.razorpay_order_id, paymentId: req.body.razorpay_payment_id, signature: req.body.razorpay_signature }, testCredentials().keySecret))
+    return res.sendStatus(400);
+  const payment = await fetchTestPayment(req.body.razorpay_payment_id);
+  if (!isCapturedPayment(payment, { orderId: pending.razorpay_order_id, paymentId: req.body.razorpay_payment_id, amountPaise: pending.amount_paise }))
+    return errorPage(res, 'Payment not confirmed', 'Razorpay has not confirmed a captured test payment. No shop order was created.', 409);
+  await testPayments.updateOne({ _id: pending._id, status: 'pending' }, { $set: { status: 'paid', razorpay_payment_id: payment.id, paid_at: now() } });
+  res.redirect(`/payments/test/${req.params.token}`);
 }));
 app.post('/orders', customerOnly, csrf, wrap(async (req, res) => {
   const profile = await customers.findOne({ _id: res.locals.customer.sub });
@@ -328,6 +381,7 @@ export async function init() {
     products.createIndex({ id: 1 }, { unique: true }), products.createIndex({ active: 1, id: -1 }), orders.createIndex({ id: 1 }, { unique: true }),
     orders.createIndex({ id: -1 }), orders.createIndex({ customer_sub: 1, id: -1 }), categories.createIndex({ email: 1 }, { unique: true }),
     sessions.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
+    testPayments.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
     loginLimits.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 })]);
   return app;
 }

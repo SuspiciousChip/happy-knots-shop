@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}Razorpay test payment | The Happy Knots{% endblock %}
+{% block body %}
+<header class="account-header"><a class="account-brand" href="/">Happy Knots</a><a href="/checkout">Back to checkout</a></header>
+<main class="test-payment-page">
+  <span class="eyebrow">Razorpay test mode</span>
+  {% if payment.status == 'paid' %}
+    <h1>Test payment confirmed.</h1>
+    <p>Razorpay confirmed a simulated payment of ₹{{ payment.amount_paise|money }}. No real money was charged, and no shop order or stock change was made.</p>
+    <a class="button" href="/shop">Back to the shop</a>
+  {% else %}
+    <h1>Try a simulated payment.</h1>
+    <p>Total: <strong>₹{{ payment.amount_paise|money }}</strong></p>
+    <p>This tests Razorpay Checkout only. It will not place a Happy Knots order or charge real money.</p>
+    <button class="button" id="payTest" data-key="{{ key_id }}" data-order-id="{{ payment.razorpay_order_id }}" data-amount="{{ payment.amount_paise }}" data-email="{{ email }}">Open Razorpay test checkout</button>
+    <p id="paymentMessage" role="status" aria-live="polite"></p>
+    <form id="paymentResult" action="/payments/test/{{ token }}/verify" method="post" hidden>
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="razorpay_order_id">
+      <input type="hidden" name="razorpay_payment_id">
+      <input type="hidden" name="razorpay_signature">
+    </form>
+    <script src="/static/test-payment.js" defer></script>
+  {% endif %}
+</main>
+{% endblock %}
