@@ -214,6 +214,7 @@ body{overflow-x:clip}
 .about-person{min-width:0;background:var(--paper)}
 .about-portrait{aspect-ratio:4/5;overflow:hidden;background:#dcd8ce}
 .about-portrait img{width:100%;height:100%;object-fit:cover;object-position:center top}
+.about-portrait-aryan img{transform:scale(2);transform-origin:center 47%}
 .about-person-copy{padding:clamp(24px,3vw,42px)}
 .about-person-copy .eyebrow{font-size:10px;line-height:1.5}
 .about-person-copy h3{font-size:clamp(31px,3vw,46px);margin:12px 0 18px}
