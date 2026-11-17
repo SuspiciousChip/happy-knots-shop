@@ -9,7 +9,7 @@
   }
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   if ('IntersectionObserver' in window) {
-    const titles = document.querySelectorAll('.hero h1, .featured-intro h2, .section-head h2, .story h2');
+    const titles = document.querySelectorAll('.hero h1, .featured-intro h2, .section-head h2, .about-intro h2');
     const titleObserver = new IntersectionObserver(entries => {
       for (const entry of entries) {
         if (!entry.isIntersecting) continue;

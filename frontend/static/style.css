@@ -188,7 +188,7 @@ body{overflow-x:clip}
 
 /* Each heading turns toward the reader once as it enters the viewport. */
 @media(prefers-reduced-motion:no-preference){
-  .hero-copy,.featured-intro,.section-head,.story>div{perspective:1000px}
+  .hero-copy,.featured-intro,.section-head,.about-intro{perspective:1000px}
   .viewport-flip{transform-origin:50% 100%;backface-visibility:hidden;transform:translate3d(0,44px,-110px) rotateX(-78deg) rotateY(-10deg);opacity:0;transition:transform .9s cubic-bezier(.16,1,.3,1),opacity .7s ease}
   .viewport-flip.is-flipped{transform:translate3d(0,0,0) rotateX(0) rotateY(0);opacity:1}
 }
@@ -203,6 +203,30 @@ body{overflow-x:clip}
 .site-header .bag-button{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:46px;padding:8px 10px 8px 15px;border:1px solid var(--green);border-radius:999px;background:var(--green);color:#fff;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:none;box-shadow:0 3px 12px #193e331a;transition:background .2s ease,box-shadow .2s ease,transform .2s ease}
 .site-header .bag-button:hover{background:#285b48;box-shadow:0 7px 18px #193e3330;transform:translateY(-2px)}
 .site-header .bag-button:active{transform:translateY(0)}
+
+/* Founder portraits on the home page. */
+.about-section{padding-block:clamp(72px,9vw,132px);background:#eee9de;scroll-margin-top:30px}
+.about-intro{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,420px);column-gap:clamp(24px,5vw,90px);align-items:end;margin-bottom:clamp(36px,5vw,70px)}
+.about-intro .eyebrow{grid-column:1/-1;margin-bottom:16px}
+.about-intro h2{font-size:clamp(48px,6.5vw,90px);letter-spacing:-.04em;margin:0;max-width:900px}
+.about-intro p{font-size:clamp(15px,1.35vw,18px);line-height:1.7;margin:0 0 8px;color:#526158}
+.about-people{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(24px,3vw,48px)}
+.about-person{min-width:0;background:var(--paper)}
+.about-portrait{aspect-ratio:4/5;overflow:hidden;background:#dcd8ce}
+.about-portrait img{width:100%;height:100%;object-fit:cover;object-position:center top}
+.about-person-copy{padding:clamp(24px,3vw,42px)}
+.about-person-copy .eyebrow{font-size:10px;line-height:1.5}
+.about-person-copy h3{font-size:clamp(31px,3vw,46px);margin:12px 0 18px}
+.about-person-copy p{font-size:15px;line-height:1.75;color:#526158;margin:0;max-width:56ch}
+@media(max-width:760px){
+  .about-intro{grid-template-columns:1fr;gap:12px}
+  .about-intro .eyebrow{margin-bottom:0}
+  .about-people{gap:20px}
+}
+@media(max-width:600px){
+  .about-people{grid-template-columns:1fr;gap:28px}
+  .about-person-copy{padding:26px}
+}
 .site-header .bag-button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 .cart-icon{display:block;width:21px;height:21px;flex:none}
 .cart-count{display:grid;place-items:center;min-width:25px;height:25px;padding:0 5px;border-radius:999px;background:#ead8ac;color:var(--deep);font-size:11px;font-weight:800;line-height:1}
