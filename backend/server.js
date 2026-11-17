@@ -92,6 +92,7 @@ app.get('/', wrap(async (req, res) => {
   const listing = (await catalog(true)).slice(0, 6);
   render(res, 'shop.html', { products: listing.map(publicProduct), product_json: (await catalog(true)).map(publicProduct) });
 }));
+app.get('/contact', (_req, res) => render(res, 'contact.html'));
 app.get('/shop', wrap(async (req, res) => {
   const listing = (await catalog(true)).map(publicProduct);
   const tag = tagNames.includes(req.query.category) ? req.query.category : null;

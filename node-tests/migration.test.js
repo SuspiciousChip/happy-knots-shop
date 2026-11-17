@@ -42,7 +42,9 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.match(shopPage, /href="\/shop"/);
   assert.match(shopPage, /data-reveal/);
   assert.match(shopPage, /Terms and conditions/);
+  assert.match(shopPage, /mailto:h4appy\.knots\.official@gmail\.com/);
   assert.equal((shopPage.match(/class="site-footer"/g) || []).length, 1);
+  assert.match(env.render('contact.html', base), /order support, product questions, and general queries/);
   assert.match(env.render('catalog.html', { ...base, tags: ['Door Hangings'] }), /class="site-footer"/);
   assert.match(env.render('catalog.html', { ...base, tags: ['Door Hangings'] }), /Door Hangings/);
   assert.match(env.render('product.html', { ...base, product: { id: 1, name: 'Example', price_paise: 200, tags: [], stock: 1 } }), /Add to bag/);
