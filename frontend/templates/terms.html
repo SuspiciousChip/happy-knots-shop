@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}Terms and Conditions | The Happy Knots{% endblock %}
+{% block body %}
+<div class="announcement">Handmade crochet by Rakhi Dixit</div>
+<header class="site-header"><a href="/" class="logo"><img src="/static/assets/happy-knots-logo.png" alt="The Happy Knots"></a><nav><a href="/shop">Shop products</a><a href="/#story">Our story</a></nav><a href="{{ '/account' if customer else '/account/login' }}">{{ 'My account' if customer else 'Sign in' }}</a></header>
+<main class="legal-page wrap">
+  <span class="eyebrow">Store information</span>
+  <h1>Terms and Conditions</h1>
+  <div class="legal-copy">
+  <p>This website is operated by The Happy Knots. Throughout the site, the terms “we”, “us” and “our” refer to The Happy Knots. The Happy Knots offers this website, including all information, tools, and services available from this site to you, the user, conditioned upon your acceptance of all terms, conditions, policies, and notices stated here.</p>
+  <p>By visiting our site and/or purchasing something from us, you engage in our “Service” and agree to be bound by the following Terms of Service (“Terms”), including additional terms, conditions, and policies referenced herein and/or available by hyperlink. These Terms apply to all users of the site, including browsers, vendors, customers, merchants, and contributors of content.</p>
+  <p>Please read these Terms of Service carefully before accessing or using our website. By accessing or using any part of the website, you agree to be bound by these Terms. If you do not agree to all the terms and conditions of this agreement, you may not access the website or use any services.</p>
+  <p>Any new features or tools added to the current store shall also be subject to these Terms of Service. We reserve the right to update, change, or replace any part of these Terms by posting updates on our website. Your continued use of the website following any changes constitutes acceptance of those changes.</p>
+  <h2>SECTION 1 – ONLINE STORE TERMS</h2>
+  <p>By agreeing to these Terms of Service, you confirm that you are at least the age of majority in your state or province of residence, or that you have given consent for any minor dependents to use this site.</p>
+  <p>You may not use our products or services for any illegal or unauthorized purpose or violate any applicable laws.</p>
+  <p>You must not transmit any viruses, malware, or destructive code.</p>
+  <p>Any breach of these Terms may result in immediate termination of your access to our Services.</p>
+  <h2>SECTION 2 – GENERAL CONDITIONS</h2>
+  <p>We reserve the right to refuse service to anyone for any reason at any time.</p>
+  <p>You understand that your content (excluding payment information) may be transferred unencrypted over various networks and adapted to technical requirements. Payment information is always encrypted during transmission.</p>
+  <p>You agree not to reproduce, duplicate, copy, sell, resell, or exploit any part of the Service without written permission from us.</p>
+  <h2>SECTION 3 – ACCURACY OF INFORMATION</h2>
+  <p>We are not responsible if information available on this website is not accurate, complete, or current. The content on this site is provided for general information only and should not be solely relied upon without consulting more accurate or updated sources.</p>
+  <p>We reserve the right to modify website content at any time without obligation to update information.</p>
+  <h2>SECTION 4 – PRODUCT PRICING &amp; MODIFICATIONS</h2>
+  <p>Prices for products are subject to change without notice.</p>
+  <p>We reserve the right to modify or discontinue any product or service without prior notice.</p>
+  <p>We shall not be liable for any modification, price change, suspension, or discontinuance of the Service.</p>
+  <h2>SECTION 5 – PRODUCTS OR SERVICES</h2>
+  <p>Certain products or services may be available exclusively online and may have limited quantities.</p>
+  <p>Products are subject to return or refund only according to our Return &amp; Refund Policy.</p>
+  <p>We make every effort to display product colors and images accurately; however, we cannot guarantee that your device display will accurately reflect actual colors.</p>
+  <p>We reserve the right to limit sales of products or services to any individual, region, or jurisdiction on a case-by-case basis.</p>
+  <h2>SECTION 6 – BILLING &amp; ACCOUNT INFORMATION</h2>
+  <p>We reserve the right to refuse or cancel any order placed with us.</p>
+  <p>You agree to provide current, complete, and accurate purchase and account information for all orders placed on our store.</p>
+  <p>For more details, please review our Return &amp; Refund Policy.</p>
+  <h2>SECTION 7 – THIRD-PARTY SERVICES &amp; LINKS</h2>
+  <p>Certain content, products, and services available through our website may include materials from third parties.</p>
+  <p>We are not responsible for examining or evaluating third-party content, websites, or services and shall not be liable for any third-party materials or transactions.</p>
+  <h2>SECTION 8 – USER COMMENTS &amp; FEEDBACK</h2>
+  <p>If you submit comments, suggestions, feedback, or other materials to us, you agree that we may use, edit, publish, and distribute them without restriction.</p>
+  <p>You agree that your comments will not violate any third-party rights or contain unlawful, abusive, defamatory, or malicious content.</p>
+  <h2>SECTION 9 – PERSONAL INFORMATION</h2>
+  <p>Your submission of personal information through the website is governed by our Privacy Policy.</p>
+  <h2>SECTION 10 – ERRORS &amp; OMISSIONS</h2>
+  <p>Occasionally there may be typographical errors, inaccuracies, or omissions relating to product descriptions, pricing, promotions, shipping charges, transit times, or availability.</p>
+  <p>We reserve the right to correct such errors and update information or cancel orders without prior notice.</p>
+  <h2>SECTION 11 – PROHIBITED USES</h2>
+  <p>You are prohibited from using the website or its content:</p>
+  <ul><li>For unlawful purposes</li><li>To violate any laws or regulations</li><li>To infringe intellectual property rights</li><li>To upload malicious code or viruses</li><li>To collect personal information of others</li><li>To spam, phish, scrape, or exploit the website</li><li>To interfere with website security or operations</li></ul>
+  <p>We reserve the right to terminate access for violating prohibited uses.</p>
+  <h2>SECTION 12 – DISCLAIMER OF WARRANTIES &amp; LIMITATION OF LIABILITY</h2>
+  <p>We do not guarantee uninterrupted, secure, or error-free use of our services.</p>
+  <p>All products and services are provided “as is” and “as available” without warranties of any kind.</p>
+  <p>The Happy Knots shall not be liable for any direct, indirect, incidental, special, or consequential damages arising from your use of our products, services, or website.</p>
+  <h2>SECTION 13 – INDEMNIFICATION</h2>
+  <p>You agree to indemnify and hold harmless The Happy Knots and its affiliates, employees, service providers, and partners from any claim arising from your breach of these Terms or violation of any law or third-party rights.</p>
+  <h2>SECTION 14 – SEVERABILITY</h2>
+  <p>If any provision of these Terms is found to be unlawful or unenforceable, the remaining provisions shall remain valid and enforceable.</p>
+  <h2>SECTION 15 – TERMINATION</h2>
+  <p>These Terms remain effective unless terminated by either you or us.</p>
+  <p>We may terminate or suspend your access to our Services immediately without notice if you violate these Terms.</p>
+  <h2>SECTION 16 – ENTIRE AGREEMENT</h2>
+  <p>These Terms of Service, along with any policies posted on this website, constitute the entire agreement between you and The Happy Knots regarding the use of the Service.</p>
+  <h2>SECTION 17 – GOVERNING LAW</h2>
+  <p>These Terms of Service shall be governed by and interpreted in accordance with the laws of India, with jurisdiction in Jaipur, Rajasthan.</p>
+  <h2>SECTION 18 – CHANGES TO TERMS OF SERVICE</h2>
+  <p>We reserve the right to update or modify these Terms at any time by posting updates on our website.</p>
+  <p>Continued use of the website after any changes constitutes acceptance of those changes.</p>
+  <h2>SECTION 19 – CONTACT INFORMATION</h2>
+  <p>Questions regarding these Terms of Service may be sent to:</p>
+  <p>The Happy Knots<br>Email: <a href="mailto:h4appy.knots.official@gmail.com">h4appy.knots.official@gmail.com</a></p>
+  </div>
+</main>
+{% endblock %}

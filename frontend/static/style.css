@@ -86,3 +86,10 @@
 .catalog-preview-grid .featured-tile{aspect-ratio:4/5}
 .catalog-preview-grid .featured-tile figcaption{font-size:clamp(20px,2vw,28px);left:18px;bottom:18px}
 @media(max-width:560px){.catalog-preview-grid{grid-template-columns:1fr 1fr}.catalog-preview-grid .featured-tile:last-child{grid-column:1/-1;aspect-ratio:16/9}}
+.legal-page{max-width:1100px;padding-block:clamp(64px,8vw,120px) clamp(85px,10vw,150px)}
+.legal-page h1{font-size:clamp(52px,7vw,88px);margin:18px 0 48px}
+.legal-copy{max-width:78ch;line-height:1.75;color:#3e5045}
+.legal-copy h2{font-size:clamp(25px,3vw,35px);margin:46px 0 15px;color:var(--green)}
+.legal-copy p{margin:0 0 18px}
+.legal-copy ul{padding-left:24px;margin:0 0 26px}
+.legal-copy li{padding-left:6px;margin:5px 0}
