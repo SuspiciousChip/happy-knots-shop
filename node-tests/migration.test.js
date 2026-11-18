@@ -50,6 +50,11 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.match(shopPage, /href="\/shop"/);
   assert.match(shopPage, /data-reveal/);
   assert.match(shopPage, /Terms and conditions/);
+  assert.match(shopPage, /id="cookieBanner"/);
+  assert.match(shopPage, /data-cookie-essential/);
+  assert.match(shopPage, /data-cookie-accept/);
+  assert.match(shopPage, /data-cookie-settings/);
+  assert.match(shopPage, /src="\/static\/cookie-consent\.js\?v=1"/);
   assert.match(shopPage, /mailto:h4appy\.knots\.official@gmail\.com/);
   assert.equal((shopPage.match(/class="site-footer"/g) || []).length, 1);
   assert.match(shopPage, /href="\/about">Our story/);
@@ -68,6 +73,7 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   const privacyPage = env.render('privacy.html', base);
   assert.match(shopPage, /href="\/privacy"/);
   assert.match(privacyPage, /mailto:h4appy\.knots\.official@gmail\.com/);
+  assert.match(privacyPage, /We do not currently use advertising or visitor analytics cookies/);
   assert.match(privacyPage, /B3, Snn Raj Etternia, near Tcis Silver County Road, Haralur, Bengaluru, Karnataka, India/);
   assert.doesNotMatch(privacyPage, /P Palettes|ppalettes\.com|GoKwik|Microsoft Clarity/);
   const shippingPage = env.render('shipping.html', base);
