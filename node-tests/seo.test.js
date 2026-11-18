@@ -26,6 +26,8 @@ const product = {
 
 test('robots policy allows discovery bots while protecting private routes', () => {
   const robots = robotsText();
+  assert.match(robots, /User-agent: Google-InspectionTool/);
+  assert.match(robots, /Allow: \/sitemap\.xml/);
   assert.match(robots, /User-agent: GPTBot/);
   assert.match(robots, /User-agent: ClaudeBot/);
   assert.match(robots, /User-agent: PerplexityBot/);

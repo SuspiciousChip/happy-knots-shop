@@ -105,8 +105,8 @@ export const breadcrumbSchema = product => ({
 });
 
 export function robotsText() {
-  const bots = ['Googlebot', 'Bingbot', 'GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'PerplexityBot', 'Google-Extended'];
-  return [`User-agent: *`, 'Allow: /', 'Disallow: /owner', 'Disallow: /account', 'Disallow: /checkout', 'Disallow: /orders', 'Disallow: /payments', '', ...bots.flatMap(bot => [`User-agent: ${bot}`, 'Allow: /', '']), `Sitemap: ${SITE_URL}/sitemap.xml`, ''].join('\n');
+  const bots = ['Googlebot', 'Google-InspectionTool', 'Bingbot', 'GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'PerplexityBot', 'Google-Extended'];
+  return [`User-agent: *`, 'Allow: /', 'Allow: /sitemap.xml', 'Disallow: /owner', 'Disallow: /account', 'Disallow: /checkout', 'Disallow: /orders', 'Disallow: /payments', '', ...bots.flatMap(bot => [`User-agent: ${bot}`, 'Allow: /', 'Allow: /sitemap.xml', '']), `Sitemap: ${SITE_URL}/sitemap.xml`, ''].join('\n');
 }
 
 export function sitemapXml(products) {
