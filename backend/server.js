@@ -23,6 +23,7 @@ import { ownerProductDraft, ownerProductUpdateDraft } from './owner-product.js';
 import { orderAnalytics } from './analytics.js';
 import { decryptValue, encryptValue } from './secure-data.js';
 import { generateTotpSecret, totpUri, verifyTotp } from './owner-mfa.js';
+import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, SITE_UPDATED, CONTACT_EMAIL, FAQS, seoFor, organizationSchema, websiteSchema, faqSchema, productSchema, breadcrumbSchema, robotsText, sitemapXml, rssXml, llmsText } from './seo.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(root, '..');
@@ -65,7 +66,10 @@ const ownerAudit = database.collection('owner_security_audit');
 const productImages = new GridFSBucket(database, { bucketName: 'product_images' });
 const catalogDrafts = JSON.parse(fs.readFileSync(path.join(projectRoot, 'database/product-drafts.json'), 'utf8'));
 const env = nunjucks.configure(path.join(projectRoot, 'frontend', 'templates'), { autoescape: true, noCache: process.env.NODE_ENV !== 'production' });
-const render = (res, name, data = {}) => res.send(env.render(name, { csrf: res.locals.csrf, customer: res.locals.customer, is_owner: isOwner(res.locals.customer), ...data }));
+const render = (res, name, data = {}) => res.send(env.render(name, {
+  csrf: res.locals.csrf, customer: res.locals.customer, is_owner: isOwner(res.locals.customer),
+  ...seoFor(res.req.path, data), ...data
+}));
 env.addFilter('money', n => (Number(n || 0) / 100).toFixed(2));
 env.addFilter('json_safe', x => new nunjucks.runtime.SafeString(JSON.stringify(x).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')));
 env.addFilter('urlencode', x => encodeURIComponent(x));
@@ -86,6 +90,7 @@ app.use((req, res, next) => {
   next();
 });
 app.get('/healthz', (_req, res) => res.sendStatus(200));
+app.get('/robots.txt', (_req, res) => res.type('text/plain').set('Cache-Control', 'public, max-age=3600').send(robotsText()));
 const random = () => crypto.randomBytes(32).toString('base64url');
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
 const equal = (a, b) => typeof a === 'string' && typeof b === 'string' && crypto.timingSafeEqual(Buffer.from(digest(a)), Buffer.from(digest(b)));
@@ -225,6 +230,23 @@ async function catalog() { return products.find({ active: 1 }).project({ id: 1, 
 const tagNames = ['Personal Accessories & Clothing', 'Door Hangings', 'Wall Hangings', 'Home Decor'];
 const tagsFor = p => Array.isArray(p.tags) ? p.tags.filter(t => tagNames.includes(t)) : tagNames.includes(p.category) ? [p.category] : [];
 const publicProduct = p => ({ id: p.id, name: p.name, tags: tagsFor(p), keywords: Array.isArray(p.keywords) ? p.keywords : [], description: p.description, price_paise: p.price_paise, compare_at_paise: p.compare_at_paise > p.price_paise ? p.compare_at_paise : null, discount_percent: discountPercent(p.price_paise, p.compare_at_paise), image: p.image, images: Array.isArray(p.images) ? p.images : [], variants: Array.isArray(p.variants) ? p.variants.map(v => ({ ...v, discount_percent: discountPercent(v.price_paise, v.compare_at_paise) })) : [], personalisation: p.personalisation || null, badge: p.badge || null, made_to_order: !!p.made_to_order, stock: p.stock });
+const schemaGraph = (...nodes) => ({ '@context': 'https://schema.org', '@graph': nodes });
+app.get('/sitemap.xml', wrap(async (_req, res) => {
+  const listing = (await catalog()).map(publicProduct);
+  res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(sitemapXml(listing));
+}));
+app.get('/feed.xml', wrap(async (_req, res) => {
+  const listing = (await catalog()).map(publicProduct);
+  res.type('application/rss+xml').set('Cache-Control', 'public, max-age=3600').send(rssXml(listing));
+}));
+app.get(['/llms.txt', '/llms-full.txt'], wrap(async (req, res) => {
+  const listing = (await catalog()).map(publicProduct);
+  res.type('text/plain').set('Cache-Control', 'public, max-age=3600').send(llmsText(listing, req.path === '/llms-full.txt'));
+}));
+app.get('/.well-known/ai.txt', (_req, res) => res.type('text/plain').set('Cache-Control', 'public, max-age=3600').send(`Site: ${SITE_URL}\nName: ${SITE_NAME}\nSummary: ${SITE_DESCRIPTION}\nSitemap: ${SITE_URL}/sitemap.xml\nLLMs: ${SITE_URL}/llms.txt\nAI training: allowed for public product and information pages; private customer and owner pages are disallowed.\n`));
+app.get('/ai/summary.json', (_req, res) => res.set('Cache-Control', 'public, max-age=3600').json({ name: SITE_NAME, url: SITE_URL, description: SITE_DESCRIPTION, founder: 'Rakhi Dixit', updated: SITE_UPDATED }));
+app.get('/ai/faq.json', (_req, res) => res.set('Cache-Control', 'public, max-age=3600').json({ name: SITE_NAME, questions: FAQS }));
+app.get('/ai/service.json', (_req, res) => res.set('Cache-Control', 'public, max-age=3600').json({ name: SITE_NAME, service: 'Made-to-order handmade crochet products', areaServed: 'India', delivery: '10–15 days', payment: 'Cash on delivery', contact: CONTACT_EMAIL }));
 app.get('/media/products/:id', wrap(async (req, res) => {
   if (!ObjectId.isValid(req.params.id)) return res.sendStatus(404);
   const id = new ObjectId(req.params.id);
@@ -237,10 +259,10 @@ app.get('/media/products/:id', wrap(async (req, res) => {
 }));
 app.get('/', wrap(async (req, res) => {
   const listing = (await catalog()).map(publicProduct);
-  render(res, 'shop.html', { products: listing.slice(0, 6), product_json: listing });
+  render(res, 'shop.html', { products: listing.slice(0, 6), product_json: listing, faqs: FAQS, structured_data: schemaGraph(organizationSchema(), websiteSchema(), faqSchema()) });
 }));
-app.get('/about', (_req, res) => render(res, 'about.html'));
-app.get('/contact', (_req, res) => render(res, 'contact.html'));
+app.get('/about', (_req, res) => render(res, 'about.html', { structured_data: schemaGraph(organizationSchema(), { '@type': 'AboutPage', '@id': `${SITE_URL}/about#page`, url: `${SITE_URL}/about`, name: `Our Story | ${SITE_NAME}`, dateModified: SITE_UPDATED, about: { '@id': `${SITE_URL}/#organization` } }) }));
+app.get('/contact', (_req, res) => render(res, 'contact.html', { structured_data: schemaGraph(organizationSchema(), { '@type': 'ContactPage', url: `${SITE_URL}/contact`, name: `Contact ${SITE_NAME}` }) }));
 app.get('/terms', (_req, res) => render(res, 'terms.html'));
 app.get('/privacy', (_req, res) => render(res, 'privacy.html'));
 app.get('/shipping', (_req, res) => render(res, 'shipping.html'));
@@ -250,7 +272,7 @@ app.get('/shop', wrap(async (req, res) => {
   const tag = tagNames.includes(req.query.category) ? req.query.category : null;
   const searchQuery = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 80) : '';
   const filtered = searchProducts(tag ? listing.filter(p => p.tags.includes(tag)) : listing, searchQuery);
-  render(res, 'catalog.html', { products: filtered, product_json: listing, tags: tagNames, selected_tag: tag, search_query: searchQuery });
+  render(res, 'catalog.html', { products: filtered, product_json: listing, tags: tagNames, selected_tag: tag, search_query: searchQuery, structured_data: schemaGraph(organizationSchema(), { '@type': 'CollectionPage', url: `${SITE_URL}/shop`, name: 'Handmade crochet products', description: 'Made-to-order crochet bags, flowers, accessories and home decor.', mainEntity: { '@type': 'ItemList', itemListElement: filtered.map((product, index) => ({ '@type': 'ListItem', position: index + 1, url: `${SITE_URL}/products/${product.id}`, name: product.name })) } }) });
 }));
 app.get('/products/:id', wrap(async (req, res) => {
   const id = Number(req.params.id);
@@ -260,7 +282,8 @@ app.get('/products/:id', wrap(async (req, res) => {
     catalog()
   ]);
   if (!product) return res.sendStatus(404);
-  render(res, 'product.html', { product: publicProduct(product), product_json: listing.map(publicProduct) });
+  const publicItem = publicProduct(product);
+  render(res, 'product.html', { product: publicItem, product_json: listing.map(publicProduct), structured_data: schemaGraph(organizationSchema(), productSchema(publicItem), breadcrumbSchema(publicItem)) });
 }));
 app.get('/checkout', customerOnly, wrap(async (req, res) => {
   const [profile, listing] = await Promise.all([

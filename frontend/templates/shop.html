@@ -56,6 +56,12 @@
     </div>
     <a class="button" href="/shop" style="margin-top:32px">Shop all products →</a>
   </section>
+  <section class="home-faq wrap" aria-labelledby="faq-title">
+    <div class="home-faq-intro"><span class="eyebrow">Before you order</span><h2 id="faq-title">Handmade order questions.</h2><p>Clear answers about how our made-to-order pieces, delivery and payment work.</p></div>
+    <div class="home-faq-list">
+      {% for faq in faqs %}<details><summary>{{ faq.question }}</summary><p>{{ faq.answer }}</p></details>{% endfor %}
+    </div>
+  </section>
 </main>
 {% include 'bag.html' %}
 <script nonce="{{ csp_nonce }}">const products={{ product_json|json_safe }};</script>

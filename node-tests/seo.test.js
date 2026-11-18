@@ -1,0 +1,70 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  SITE_URL,
+  breadcrumbSchema,
+  faqSchema,
+  llmsText,
+  organizationSchema,
+  productSchema,
+  robotsText,
+  seoFor,
+  sitemapXml,
+  websiteSchema
+} from '../backend/seo.js';
+
+const product = {
+  id: 'lotus-holder',
+  name: 'Crochet Lotus Tealight Holders',
+  description: 'A handmade pair of crochet lotus tealight holders.',
+  image: '/static/assets/products/lotus.webp',
+  images: ['/static/assets/products/lotus.webp'],
+  price_paise: 89900,
+  stock: 1,
+  tags: ['Home Decor']
+};
+
+test('robots policy allows discovery bots while protecting private routes', () => {
+  const robots = robotsText();
+  assert.match(robots, /User-agent: GPTBot/);
+  assert.match(robots, /User-agent: ClaudeBot/);
+  assert.match(robots, /User-agent: PerplexityBot/);
+  assert.match(robots, /Disallow: \/owner/);
+  assert.match(robots, new RegExp(`Sitemap: ${SITE_URL}/sitemap\\.xml`));
+});
+
+test('page metadata uses canonical product URLs and noindexes account pages', () => {
+  const productSeo = seoFor(`/products/${product.id}`, { product });
+  assert.equal(productSeo.canonical_url, `${SITE_URL}/products/${product.id}`);
+  assert.equal(productSeo.og_type, 'product');
+  assert.match(productSeo.meta_title, /Crochet Lotus Tealight Holders/);
+
+  const accountSeo = seoFor('/account/login');
+  assert.equal(accountSeo.noindex, true);
+  assert.equal(seoFor('/shop').noindex, false);
+});
+
+test('sitemap contains public pages and product detail URLs', () => {
+  const sitemap = sitemapXml([product]);
+  assert.match(sitemap, /<urlset/);
+  assert.match(sitemap, new RegExp(`${SITE_URL}/shop`));
+  assert.match(sitemap, new RegExp(`${SITE_URL}/products/${product.id}`));
+  assert.doesNotMatch(sitemap, /\/owner/);
+});
+
+test('structured data identifies the business, website, FAQs and product', () => {
+  assert.equal(organizationSchema()['@type'], 'Organization');
+  assert.equal(websiteSchema()['@type'], 'WebSite');
+  assert.equal(faqSchema()['@type'], 'FAQPage');
+  assert.equal(productSchema(product)['@type'], 'Product');
+  assert.equal(productSchema(product).offers.price, '899.00');
+  assert.equal(breadcrumbSchema(product)['@type'], 'BreadcrumbList');
+});
+
+test('llms file contains identity, policies and catalogue facts', () => {
+  const content = llmsText([product], true);
+  assert.match(content, /# The Happy Knots/);
+  assert.match(content, /10–15 days/);
+  assert.match(content, /Crochet Lotus Tealight Holders/);
+  assert.match(content, /Frequently asked questions/);
+});

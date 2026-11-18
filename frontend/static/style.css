@@ -51,6 +51,7 @@
 @media(max-width:560px){.owner-product-list>article{grid-template-columns:58px minmax(0,1fr)}.owner-product-links{grid-column:2;justify-content:flex-start;gap:12px}.owner-product-links a{min-height:44px;padding-inline:18px}}
 
 /* Storefront footer */
+.home-faq{display:grid;grid-template-columns:minmax(260px,.75fr) minmax(0,1.25fr);gap:clamp(40px,7vw,110px);padding-block:90px 110px;border-top:1px solid #d8d4ca}.home-faq h2{font-size:clamp(42px,5vw,68px);margin:16px 0 22px}.home-faq-intro>p{max-width:40ch;color:#617067;line-height:1.65}.home-faq-list{border-top:1px solid #cfd1c7}.home-faq-list details{border-bottom:1px solid #cfd1c7;padding:0}.home-faq-list summary{cursor:pointer;list-style:none;padding:23px 42px 23px 0;font-weight:700;position:relative}.home-faq-list summary::-webkit-details-marker{display:none}.home-faq-list summary::after{content:'+';position:absolute;right:5px;top:17px;font:28px 'Playfair Display',serif}.home-faq-list details[open] summary::after{content:'−'}.home-faq-list p{margin:0;padding:0 44px 24px 0;color:#52655a;line-height:1.65}.home-faq-list summary:hover{color:#8a5d1f}@media(max-width:760px){.home-faq{grid-template-columns:1fr;padding-block:65px 80px}.home-faq h2{font-size:42px}}
 .site-footer{display:block;background:#101510;color:#f7f4ec;padding:0;font-size:14px}
 .footer-main{display:grid;grid-template-columns:1fr 1fr 1fr minmax(260px,1.4fr);gap:clamp(28px,4vw,72px);padding-block:72px 80px}
 .footer-column{display:flex;flex-direction:column;align-items:flex-start;gap:18px}
