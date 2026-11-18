@@ -17,6 +17,7 @@ import { searchProducts } from './search.js';
 import { checkoutSelection, discountPercent, pricedLines } from './catalog-options.js';
 import { createTestOrder, fetchTestPayment, isCapturedPayment, testCredentials, verifyPaymentSignature } from './razorpay.js';
 import { appBaseUrl } from './base-url.js';
+import { isOrderStatus, isOwner, ORDER_STATUSES } from './owner-access.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(root, '..');
@@ -93,6 +94,12 @@ app.use(async (req, res, next) => {
   } catch (error) { next(error); }
 });
 const customerOnly = (req, res, next) => res.locals.customer ? next() : res.redirect('/account/login?next=' + encodeURIComponent(req.originalUrl));
+const ownerOnly = (req, res, next) => {
+  if (!res.locals.customer) return res.redirect('/account/login?next=' + encodeURIComponent(req.originalUrl));
+  if (!isOwner(res.locals.customer)) return res.sendStatus(404);
+  res.set('Cache-Control', 'private, no-store');
+  next();
+};
 const testPaymentsReady = () => {
   if (process.env.RENDER === 'true' || process.env.NODE_ENV === 'production' || process.env.RAZORPAY_TEST_CHECKOUT !== 'true') return false;
   try { testCredentials(); return true; } catch { return false; }
@@ -292,7 +299,7 @@ async function cognito() {
   }
   return oidcConfigPromise;
 }
-const safeNext = value => typeof value === 'string' && /^\/(?:account|checkout|shop|products)(?:[/?#]|$)/.test(value) && !value.includes(String.fromCharCode(92)) ? value : '/account';
+const safeNext = value => typeof value === 'string' && /^\/(?:account|checkout|shop|products|owner)(?:[/?#]|$)/.test(value) && !value.includes(String.fromCharCode(92)) ? value : '/account';
 const loginRateLimit = async (req, res, next) => {
   try {
     const windowMs = 10 * 60 * 1000;
@@ -403,6 +410,42 @@ app.get('/account/orders/:id', customerOnly, wrap(async (req, res) => {
   const clear_cart = unsign(req.cookies.hk_checkout_success) === String(id);
   if (req.cookies.hk_checkout_success) res.clearCookie('hk_checkout_success');
   render(res, 'customer_order.html', { order, clear_cart });
+}));
+app.get('/owner', ownerOnly, wrap(async (req, res) => {
+  const before = Number(req.query.before);
+  const selectedStatus = isOrderStatus(req.query.status) ? req.query.status : '';
+  const filter = selectedStatus ? { status: selectedStatus } : {};
+  if (Number.isSafeInteger(before) && before > 0) filter.id = { $lt: before };
+  const [history, totalOrders, openOrders, deliveredOrders, orderValue] = await Promise.all([
+    orders.find(filter).project({ id: 1, created_at: 1, status: 1, customer_name: 1, email: 1, total_paise: 1, subtotal_paise: 1 }).sort({ id: -1 }).limit(51).toArray(),
+    orders.countDocuments(),
+    orders.countDocuments({ status: { $nin: ['delivered', 'cancelled'] } }),
+    orders.countDocuments({ status: 'delivered' }),
+    orders.aggregate([{ $match: { status: { $ne: 'cancelled' } } }, { $group: { _id: null, value: { $sum: { $ifNull: ['$total_paise', '$subtotal_paise'] } } } }]).next()
+  ]);
+  const page = history.slice(0, 50);
+  render(res, 'owner.html', {
+    orders: page, statuses: ORDER_STATUSES, selected_status: selectedStatus,
+    next_cursor: history.length > 50 ? page.at(-1).id : null,
+    overview: { total_orders: totalOrders, open_orders: openOrders, delivered_orders: deliveredOrders, order_value_paise: orderValue?.value || 0 }
+  });
+}));
+app.get('/owner/orders/:id', ownerOnly, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  const order = Number.isSafeInteger(id) ? await orders.findOne({ id }) : null;
+  if (!order) return res.sendStatus(404);
+  render(res, 'owner_order.html', { order, statuses: ORDER_STATUSES, updated: req.query.updated === '1' });
+}));
+app.post('/owner/orders/:id/status', ownerOnly, csrf, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || !isOrderStatus(req.body.status)) return res.sendStatus(400);
+  const changedAt = now();
+  const result = await orders.updateOne({ id }, {
+    $set: { status: req.body.status, updated_at: changedAt },
+    $push: { status_history: { status: req.body.status, changed_at: changedAt, changed_by: res.locals.customer.email } }
+  });
+  if (!result.matchedCount) return res.sendStatus(404);
+  res.redirect(`/owner/orders/${id}?updated=1`);
 }));
 app.use((error, req, res, next) => {
   if (error.status && error.status < 500) return errorPage(res, 'Bag changed', error.message, error.status);

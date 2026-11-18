@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Owner orders | Happy Knots{% endblock %}
+{% block body %}
+<div class="owner-shell">
+  <aside class="owner-sidebar">
+    <a class="owner-brand" href="/owner">Happy Knots <span>Owner</span></a>
+    <nav aria-label="Owner navigation"><a class="active" href="/owner">Orders</a><a href="/shop">View shop</a><a href="/account">My account</a></nav>
+    <div class="owner-identity"><small>Signed in as</small><strong>{{ customer.email }}</strong><form action="/account/logout" method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Sign out</button></form></div>
+  </aside>
+  <main class="owner-main">
+    <header class="owner-heading"><div><span class="eyebrow">Private workspace</span><h1>Orders</h1><p>Track every handmade order from confirmation to delivery.</p></div><a class="button" href="/shop">Open storefront</a></header>
+    <section class="owner-stats" aria-label="Order overview">
+      <article><span>Total orders</span><strong>{{ overview.total_orders }}</strong></article>
+      <article><span>Open orders</span><strong>{{ overview.open_orders }}</strong></article>
+      <article><span>Delivered</span><strong>{{ overview.delivered_orders }}</strong></article>
+      <article><span>Active order value</span><strong>₹{{ overview.order_value_paise|money }}</strong></article>
+    </section>
+    <section class="owner-panel">
+      <div class="owner-toolbar"><div><h2>Order queue</h2><p>{{ 'Showing ' + (selected_status|title) + ' orders' if selected_status else 'Newest orders first' }}</p></div><form method="get" action="/owner"><label for="statusFilter">Status</label><select id="statusFilter" name="status" onchange="this.form.submit()"><option value="">All orders</option>{% for status in statuses %}<option value="{{ status }}" {{ 'selected' if selected_status == status else '' }}>{{ status|title }}</option>{% endfor %}</select></form></div>
+      {% if orders %}<div class="owner-table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Status</th><th>Total</th><th><span class="sr-only">Action</span></th></tr></thead><tbody>{% for order in orders %}<tr><td><strong>#{{ order.id }}</strong><small>{{ order.created_at|truncate(10, true, '') }}</small></td><td>{{ order.customer_name or 'Customer' }}<small>{{ order.email }}</small></td><td><span class="owner-status status-{{ order.status }}">{{ order.status|title }}</span></td><td><strong>₹{{ (order.total_paise or order.subtotal_paise)|money }}</strong></td><td><a class="owner-view" href="/owner/orders/{{ order.id }}">View order →</a></td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="owner-empty"><h3>No orders here</h3><p>Try another status filter or wait for a new order.</p></div>{% endif %}
+      {% if next_cursor %}<a class="button secondary" href="/owner?before={{ next_cursor }}{% if selected_status %}&status={{ selected_status }}{% endif %}">Older orders</a>{% endif %}
+    </section>
+  </main>
+</div>
+{% endblock %}
