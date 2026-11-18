@@ -207,7 +207,7 @@
   },
   {
     "sku": "orange-cream-crochet-doily",
-    "name": "Orange and Cream Crochet Doily",
+    "name": "Round Crochet Doily",
     "category": "Home Decor",
     "photo_times": [
       "09.12.54",
@@ -215,10 +215,23 @@
     ],
     "price_paise": 169900,
     "compare_at_paise": 229900,
-    "description": "Handmade round crochet doily with a cream center and orange scalloped border.",
+    "description": "Handmade round crochet doily. Choose Cream & Orange or Red & Gold.",
+    "style_options": [
+      {
+        "code": "cream-orange",
+        "label": "Cream & Orange",
+        "image": "/static/assets/products/orange-cream-crochet-doily-1.webp"
+      },
+      {
+        "code": "red-gold",
+        "label": "Red & Gold",
+        "image": "/static/assets/products/gold-red-crochet-doily-1.webp"
+      }
+    ],
     "images": [
       "/static/assets/products/orange-cream-crochet-doily-1.webp",
-      "/static/assets/products/orange-cream-crochet-doily-2.webp"
+      "/static/assets/products/orange-cream-crochet-doily-2.webp",
+      "/static/assets/products/gold-red-crochet-doily-1.webp"
     ],
     "made_to_order": true
   },
@@ -374,21 +387,6 @@
       "/static/assets/products/floral-crochet-toran-1.webp"
     ],
     "description": "Handmade floral crochet door toran with pink, cream and gold details.",
-    "made_to_order": true
-  },
-  {
-    "sku": "gold-red-crochet-doily",
-    "name": "Gold and Red Crochet Doily",
-    "category": "Home Decor",
-    "photo_times": [
-      "09.13.11"
-    ],
-    "price_paise": 99900,
-    "compare_at_paise": 159900,
-    "images": [
-      "/static/assets/products/gold-red-crochet-doily-1.webp"
-    ],
-    "description": "Handmade crochet doily with a gold center and deep red border.",
     "made_to_order": true
   },
   {

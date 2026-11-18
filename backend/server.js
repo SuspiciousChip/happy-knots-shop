@@ -119,19 +119,30 @@ function catalogProduct(row) {
 async function publishInitialCatalog() {
   const migration = database.collection('migration');
   const markerId = 'product-catalog-2026-11-18';
-  if (await migration.findOne({ _id: markerId })) return;
   const transaction = connection.startSession();
   try {
     await transaction.withTransaction(async () => {
-      if (await migration.findOne({ _id: markerId }, { session: transaction })) return;
-      const highest = await products.find({}, { session: transaction }).sort({ id: -1 }).limit(1).next();
-      await counters.updateOne({ _id: 'products' }, { $max: { value: highest?.id || 0 } }, { upsert: true, session: transaction });
-      for (const row of catalogDrafts) {
-        if (await products.findOne({ sku: row.sku }, { session: transaction })) continue;
-        const id = await nextId('products', transaction);
-        await products.insertOne({ ...catalogProduct(row), id }, { session: transaction });
+      if (!await migration.findOne({ _id: markerId }, { session: transaction })) {
+        const highest = await products.find({}, { session: transaction }).sort({ id: -1 }).limit(1).next();
+        await counters.updateOne({ _id: 'products' }, { $max: { value: highest?.id || 0 } }, { upsert: true, session: transaction });
+        for (const row of catalogDrafts) {
+          if (await products.findOne({ sku: row.sku }, { session: transaction })) continue;
+          const id = await nextId('products', transaction);
+          await products.insertOne({ ...catalogProduct(row), id }, { session: transaction });
+        }
+        await migration.insertOne({ _id: markerId, state: 'READY', product_count: catalogDrafts.length, created_at: now() }, { session: transaction });
       }
-      await migration.insertOne({ _id: markerId, state: 'READY', product_count: catalogDrafts.length, created_at: now() }, { session: transaction });
+      const doilyMarker = 'merge-round-doily-colours-2026-11-18';
+      if (!await migration.findOne({ _id: doilyMarker }, { session: transaction })) {
+        const row = catalogDrafts.find(item => item.sku === 'orange-cream-crochet-doily');
+        const update = catalogProduct(row);
+        delete update.units;
+        delete update.sales_revenue;
+        delete update.version;
+        await products.updateOne({ sku: row.sku }, { $set: update, $inc: { version: 1 } }, { session: transaction });
+        await products.updateOne({ sku: 'gold-red-crochet-doily' }, { $set: { active: 0 }, $inc: { version: 1 } }, { session: transaction });
+        await migration.insertOne({ _id: doilyMarker, state: 'READY', created_at: now() }, { session: transaction });
+      }
     });
   } finally { await transaction.endSession(); }
 }

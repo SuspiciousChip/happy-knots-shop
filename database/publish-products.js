@@ -60,4 +60,6 @@ try {
       console.log(`Created ${product.sku} as product ${id}`);
     }
   }
+  await products.updateOne({ sku: 'gold-red-crochet-doily' }, { $set: { active: 0 }, $inc: { version: 1 } });
+  console.log('Retired gold-red-crochet-doily (now a colour option)');
 } finally { await client.close(); }
