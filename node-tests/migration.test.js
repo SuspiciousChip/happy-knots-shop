@@ -65,8 +65,8 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.doesNotMatch(privacyPage, /P Palettes|ppalettes\.com|GoKwik|Microsoft Clarity/);
   const shippingPage = env.render('shipping.html', base);
   assert.match(shopPage, /href="\/shipping"/);
-  assert.match(shippingPage, /Bengaluru and nearby cities: 2–3 business days/);
-  assert.match(shippingPage, /Northern and Eastern India: 7–8 business days/);
+  assert.match(shippingPage, /approximately 10–15 days from order placement for making and delivery/);
+  assert.match(shippingPage, /Every product is handmade after you place your order/);
   assert.match(shippingPage, /orders below ₹1,000, shipping is ₹80/);
   assert.doesNotMatch(shippingPage, /P Palettes|SHIPPING_RATE_POLICY/);
   const returnsPage = env.render('returns.html', base);
@@ -79,6 +79,9 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.match(env.render('catalog.html', { ...base, tags: ['Door Hangings'] }), /class="site-footer"/);
   assert.match(env.render('catalog.html', { ...base, tags: ['Door Hangings'] }), /Door Hangings/);
   assert.match(env.render('product.html', { ...base, product: { id: 1, name: 'Example', price_paise: 200, tags: [], stock: 1 } }), /Add to bag/);
+  const pricedProduct = { id: 1, name: 'Example', price_paise: 49900, compare_at_paise: 89900, tags: [], stock: 1 };
+  assert.match(env.render('product.html', { ...base, product: pricedProduct }), /<del aria-label="Regular price">₹899\.00<\/del>.*<strong>₹499\.00<\/strong>/);
+  assert.match(env.render('catalog.html', { ...base, products: [pricedProduct], tags: [] }), /<del aria-label="Regular price">₹899\.00<\/del>.*<strong>₹499\.00<\/strong>/);
   const checkoutPage = env.render('checkout.html', { ...base, checkout_token: 'token', shipping_threshold_paise: 100000, standard_shipping_paise: 8000 });
   assert.match(checkoutPage, /Delivery address/);
   assert.match(checkoutPage, /data-threshold="100000" data-standard-fee="8000"/);

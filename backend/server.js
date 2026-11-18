@@ -14,6 +14,7 @@ import { INDIAN_STATES_AND_UTS, parseAddress, isCompleteAddress, formatAddress }
 import { verifyRecaptcha } from './recaptcha.js';
 import { shippingPaise, FREE_SHIPPING_THRESHOLD_PAISE, STANDARD_SHIPPING_PAISE } from './shipping.js';
 import { searchProducts } from './search.js';
+import { checkoutSelection, pricedLines } from './catalog-options.js';
 import { createTestOrder, fetchTestPayment, isCapturedPayment, testCredentials, verifyPaymentSignature } from './razorpay.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
@@ -103,10 +104,10 @@ async function nextId(name, session) {
   const result = await counters.findOneAndUpdate({ _id: name }, { $inc: { value: 1 } }, { upsert: true, returnDocument: 'after', session });
   return result.value;
 }
-async function catalog() { return products.find({ active: 1 }).project({ id: 1, name: 1, tags: 1, category: 1, description: 1, price_paise: 1, image: 1, stock: 1 }).sort({ id: -1 }).toArray(); }
+async function catalog() { return products.find({ active: 1 }).project({ id: 1, name: 1, tags: 1, category: 1, description: 1, price_paise: 1, compare_at_paise: 1, image: 1, images: 1, variants: 1, personalisation: 1, badge: 1, made_to_order: 1, stock: 1 }).sort({ id: -1 }).toArray(); }
 const tagNames = ['Personal Accessories & Clothing', 'Door Hangings', 'Wall Hangings', 'Home Decor'];
 const tagsFor = p => Array.isArray(p.tags) ? p.tags.filter(t => tagNames.includes(t)) : tagNames.includes(p.category) ? [p.category] : [];
-const publicProduct = p => ({ id: p.id, name: p.name, tags: tagsFor(p), description: p.description, price_paise: p.price_paise, image: p.image, stock: p.stock });
+const publicProduct = p => ({ id: p.id, name: p.name, tags: tagsFor(p), description: p.description, price_paise: p.price_paise, compare_at_paise: p.compare_at_paise > p.price_paise ? p.compare_at_paise : null, image: p.image, images: Array.isArray(p.images) ? p.images : [], variants: Array.isArray(p.variants) ? p.variants : [], personalisation: p.personalisation || null, badge: p.badge || null, made_to_order: !!p.made_to_order, stock: p.stock });
 app.get('/', wrap(async (req, res) => {
   const listing = (await catalog()).map(publicProduct);
   render(res, 'shop.html', { products: listing.slice(0, 6), product_json: listing });
@@ -127,7 +128,7 @@ app.get('/products/:id', wrap(async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isSafeInteger(id) || id < 1) return res.sendStatus(404);
   const [product, listing] = await Promise.all([
-    products.findOne({ id, active: 1 }, { projection: { id: 1, name: 1, tags: 1, category: 1, description: 1, price_paise: 1, image: 1, stock: 1 } }),
+    products.findOne({ id, active: 1 }, { projection: { id: 1, name: 1, tags: 1, category: 1, description: 1, price_paise: 1, compare_at_paise: 1, image: 1, images: 1, variants: 1, personalisation: 1, badge: 1, made_to_order: 1, stock: 1 } }),
     catalog()
   ]);
   if (!product) return res.sendStatus(404);
@@ -147,17 +148,13 @@ app.post('/payments/test/start', testPaymentsOnly, customerOnly, csrf, wrap(asyn
   if (!isCompleteAddress(address)) return errorPage(res, 'Complete delivery address required', 'Save a complete delivery address before testing a payment.', 400);
   let submitted;
   try { submitted = JSON.parse(req.body.items || '[]'); } catch { return res.sendStatus(400); }
-  if (!Array.isArray(submitted) || submitted.length > 50) return res.sendStatus(400);
-  const quantities = new Map();
-  for (const item of submitted) {
-    if (!Number.isSafeInteger(item?.id) || item.id < 1 || !Number.isSafeInteger(item?.quantity) || item.quantity < 1 || item.quantity > 99) return res.sendStatus(400);
-    quantities.set(item.id, (quantities.get(item.id) || 0) + item.quantity);
-  }
-  if ([...quantities.values()].some(q => q > 99)) return res.sendStatus(400);
-  const selected = await products.find({ id: { $in: [...quantities.keys()] } }).toArray();
-  if (selected.length !== quantities.size || selected.some(p => !p.active || p.stock < quantities.get(p.id)))
+  const selection = checkoutSelection(submitted);
+  if (!selection) return res.sendStatus(400);
+  const selected = await products.find({ id: { $in: [...selection.totals.keys()] } }).toArray();
+  const lines = pricedLines(selected, selection);
+  if (!lines)
     return errorPage(res, 'Bag changed', 'An item is no longer available in that quantity. Please review your bag.', 409);
-  const subtotal = selected.reduce((sum, p) => sum + p.price_paise * quantities.get(p.id), 0);
+  const subtotal = lines.reduce((sum, line) => sum + line.unit_price_paise * line.quantity, 0);
   if (!Number.isSafeInteger(subtotal) || (submitted.length && subtotal < 100)) return res.sendStatus(400);
   const isDemo = submitted.length === 0;
   const amountPaise = isDemo ? 100 : subtotal + shippingPaise(subtotal);
@@ -165,7 +162,7 @@ app.post('/payments/test/start', testPaymentsOnly, customerOnly, csrf, wrap(asyn
   const razorpayOrder = await createTestOrder({ amountPaise, receipt: `hk_test_${crypto.randomBytes(10).toString('hex')}` });
   await testPayments.insertOne({ _id: digest(token), customer_sub: res.locals.customer.sub,
     razorpay_order_id: razorpayOrder.id, amount_paise: amountPaise, is_demo: isDemo, status: 'pending',
-    address_id: address.address_id, items: selected.map(p => ({ product_id: p.id, quantity: quantities.get(p.id), unit_price_paise: p.price_paise })),
+    address_id: address.address_id, items: lines,
     created_at: now(), expires_at: new Date(Date.now() + 60 * 60 * 1000) });
   res.redirect(`/payments/test/${token}`);
 }));
@@ -197,15 +194,10 @@ app.post('/orders', customerOnly, csrf, wrap(async (req, res) => {
     pincode: address.pincode, address: formatAddress(address) };
   let submitted;
   try { submitted = JSON.parse(req.body.items || '[]'); } catch { return res.sendStatus(400); }
-  if (!Array.isArray(submitted) || !submitted.length || submitted.length > 50) return res.sendStatus(400);
-  const quantities = new Map();
-  for (const item of submitted) {
-    if (!Number.isSafeInteger(item?.id) || item.id < 1 || !Number.isSafeInteger(item?.quantity) || item.quantity < 1 || item.quantity > 99) return res.sendStatus(400);
-    quantities.set(item.id, (quantities.get(item.id) || 0) + item.quantity);
-  }
-  if ([...quantities.values()].some(q => q > 99) || !unsign(req.body.checkout_token)) return res.sendStatus(400);
+  const selection = checkoutSelection(submitted);
+  if (!selection?.lines.length || !unsign(req.body.checkout_token)) return res.sendStatus(400);
   const receiptKey = digest(req.body.checkout_token);
-  const fingerprint = digest(JSON.stringify([customer, [...quantities].sort((a, b) => a[0] - b[0])]));
+  const fingerprint = digest(JSON.stringify([customer, selection.lines.sort((a, b) => a.id - b.id || a.variant.localeCompare(b.variant) || a.personalisation.localeCompare(b.personalisation))]));
   let orderId;
   const transaction = connection.startSession();
   try {
@@ -215,10 +207,10 @@ app.post('/orders', customerOnly, csrf, wrap(async (req, res) => {
         if (previous.fingerprint !== fingerprint) throw Object.assign(new Error('Checkout token was already used'), { status: 409 });
         orderId = previous.order_id; return;
       }
-      const selected = await products.find({ id: { $in: [...quantities.keys()] } }, { session: transaction }).toArray();
-      if (selected.length !== quantities.size || selected.some(p => !p.active || p.stock < quantities.get(p.id))) throw Object.assign(new Error('An item is no longer available in that quantity. Please review your bag.'), { status: 409 });
+      const selected = await products.find({ id: { $in: [...selection.totals.keys()] } }, { session: transaction }).toArray();
+      const items = pricedLines(selected, selection);
+      if (!items) throw Object.assign(new Error('An item is no longer available in that quantity. Please review your bag.'), { status: 409 });
       orderId = await nextId('orders', transaction);
-      const items = selected.map(p => ({ product_id: p.id, product_name: p.name, unit_price_paise: p.price_paise, quantity: quantities.get(p.id) }));
       const subtotal = items.reduce((n, item) => n + item.unit_price_paise * item.quantity, 0);
       const shipping = shippingPaise(subtotal);
       const total = subtotal + shipping;
@@ -227,8 +219,9 @@ app.post('/orders', customerOnly, csrf, wrap(async (req, res) => {
         landmark: customer.landmark, city: customer.city, state: customer.state, pincode: customer.pincode,
         subtotal_paise: subtotal, shipping_paise: shipping, total_paise: total, status: 'new', payment_method: 'cash_on_delivery', created_at: now(), items }, { session: transaction });
       for (const p of selected) {
-        const qty = quantities.get(p.id);
-        const result = await products.updateOne({ id: p.id, active: 1, stock: { $gte: qty }, version: p.version }, { $inc: { stock: -qty, version: 1, units: qty, sales_revenue: qty * p.price_paise } }, { session: transaction });
+        const qty = selection.totals.get(p.id);
+        const revenue = items.filter(item => item.product_id === p.id).reduce((sum, item) => sum + item.unit_price_paise * item.quantity, 0);
+        const result = await products.updateOne({ id: p.id, active: 1, stock: { $gte: qty }, version: p.version }, { $inc: { stock: -qty, version: 1, units: qty, sales_revenue: revenue } }, { session: transaction });
         if (result.matchedCount !== 1) throw Object.assign(new Error('An item changed. Please review your bag.'), { status: 409 });
       }
       await stats.updateOne({ _id: 'shop' }, { $inc: { orders: 1, revenue: total } }, { upsert: true, session: transaction });

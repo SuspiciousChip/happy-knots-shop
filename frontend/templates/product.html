@@ -1,1 +1,31 @@
-{% extends 'base.html' %}{% block title %}{{ product.name }} | Happy Knots{% endblock %}{% block body %}{% include 'shop_header.html' %}<main class="wrap product-detail"><div class="product-detail-image"><img src="{{ product.image or '/static/assets/935e89b0ce0944d3.jpg' }}" alt="{{ product.name }}" fetchpriority="high" decoding="async"></div><div class="product-detail-copy"><a href="/shop">← Back to products</a><p class="eyebrow">Handmade crochet</p><h1>{{ product.name }}</h1><p class="detail-price">₹{{ product.price_paise|money }}</p><p>{{ product.description }}</p><div class="tag-list">{% for tag in product.tags %}<a href="/shop?category={{ tag|urlencode }}">{{ tag }}</a>{% endfor %}</div><p>{{ 'Available' if product.stock > 0 else 'Sold out' }}</p><button class="button" data-add="{{ product.id }}" {% if product.stock < 1 %}disabled{% endif %}>Add to bag</button><p class="detail-note">Payment is cash on delivery. You’ll review your address and order before placing it.</p></div></main>{% include 'bag.html' %}<script>const products={{ product_json|json_safe }};</script><script src="/static/shop-motion.js?v=viewport-flip-1" defer></script><script src="/static/shop.js?v=cart-1"></script>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}{{ product.name }} | Happy Knots{% endblock %}
+{% block body %}
+{% include 'shop_header.html' %}
+<main class="wrap product-detail">
+  <div class="product-detail-image">
+    <img id="productImage" src="{{ product.image or '/static/assets/935e89b0ce0944d3.jpg' }}" alt="{{ product.name }}" fetchpriority="high" decoding="async">
+    {% if product.images|length > 1 %}<div class="product-gallery" aria-label="Product photos">
+      {% for image in product.images %}<button type="button" data-product-image="{{ image }}" aria-label="View photo {{ loop.index }}"><img src="{{ image }}" alt="" loading="lazy"></button>{% endfor %}
+    </div>{% endif %}
+  </div>
+  <div class="product-detail-copy">
+    <a href="/shop">← Back to products</a>
+    <p class="eyebrow">{{ product.badge or 'Handmade crochet' }}</p>
+    <h1>{{ product.name }}</h1>
+    <p class="detail-price" id="detailPrice">{% if product.compare_at_paise %}<del aria-label="Regular price">₹{{ product.compare_at_paise|money }}</del>{% endif %}<strong>₹{{ product.price_paise|money }}</strong></p>
+    <p>{{ product.description }}</p>
+    {% if product.variants|length %}<label class="variant-choice" for="productVariant">Choose {{ 'set size' if product.name == 'Pink Crochet Lotus Flower Set' else 'style or colour' }}</label>
+    <select id="productVariant" required><option value="">Select an option</option>{% for variant in product.variants %}<option value="{{ variant.code }}">{{ variant.label }}</option>{% endfor %}</select>{% if product.variants[0].image %}<p class="detail-note">Colour previews are illustrative; handmade pieces may vary slightly.</p>{% endif %}{% endif %}
+    {% if product.personalisation %}<label class="variant-choice" for="productPersonalisation">{{ product.personalisation.label }}</label><input id="productPersonalisation" type="text" autocomplete="off" required placeholder="Enter the name"><p class="detail-note">We’ll make this item with the name you enter.</p>{% endif %}
+    <div class="tag-list">{% for tag in product.tags %}<a href="/shop?category={{ tag|urlencode }}">{{ tag }}</a>{% endfor %}</div>
+    <p>{{ 'Made to order' if product.made_to_order else ('Available' if product.stock > 0 else 'Sold out') }}</p>
+    <button class="button" data-add="{{ product.id }}" {% if product.stock < 1 %}disabled{% endif %}>Add to bag</button>
+    <p class="detail-note">Made after you order. Estimated delivery: 10–15 days. Payment is cash on delivery. <a href="/shipping">Shipping policy</a></p>
+  </div>
+</main>
+{% include 'bag.html' %}
+<script>const products={{ product_json|json_safe }};</script>
+<script src="/static/shop-motion.js?v=viewport-flip-1" defer></script>
+<script src="/static/shop.js?v=cart-2"></script>
+{% endblock %}

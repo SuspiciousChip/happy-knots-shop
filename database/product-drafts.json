@@ -1,0 +1,424 @@
+[
+  {
+    "sku": "crochet-rakhi",
+    "name": "Handmade Crochet Rakhi",
+    "category": "Personal Accessories & Clothing",
+    "photo_times": [
+      "09.12.47",
+      "09.12.22",
+      "09.12.23",
+      "09.12.24",
+      "09.12.50"
+    ],
+    "price_paise": 19900,
+    "compare_at_paise": 39900,
+    "description": "Handmade crochet rakhi, sold individually. Choose the design you like.",
+    "style_options": [
+      {
+        "code": "pink-round",
+        "label": "Pink round",
+        "image": "/static/assets/products/crochet-rakhi-2.webp"
+      },
+      {
+        "code": "pink-yellow-leaf",
+        "label": "Pink and yellow leaf",
+        "image": "/static/assets/products/crochet-rakhi-2.webp"
+      },
+      {
+        "code": "green-round",
+        "label": "Green round",
+        "image": "/static/assets/products/crochet-rakhi-3.webp"
+      },
+      {
+        "code": "blue-round",
+        "label": "Blue round",
+        "image": "/static/assets/products/crochet-rakhi-3.webp"
+      },
+      {
+        "code": "teal-silver-leaf",
+        "label": "Teal and silver leaf",
+        "image": "/static/assets/products/crochet-rakhi-4.webp"
+      },
+      {
+        "code": "teal-silver-round",
+        "label": "Teal and silver round",
+        "image": "/static/assets/products/crochet-rakhi-4.webp"
+      },
+      {
+        "code": "yellow-edge-multicolour",
+        "label": "Multicolour with yellow edge",
+        "image": "/static/assets/products/crochet-rakhi-1.webp"
+      },
+      {
+        "code": "orange-round",
+        "label": "Orange round",
+        "image": "/static/assets/products/crochet-rakhi-1.webp"
+      },
+      {
+        "code": "bright-multicolour",
+        "label": "Bright multicolour round",
+        "image": "/static/assets/products/crochet-rakhi-1.webp"
+      },
+      {
+        "code": "maroon-flower",
+        "label": "Maroon flower",
+        "image": "/static/assets/products/crochet-rakhi-1.webp"
+      },
+      {
+        "code": "red-flower-chain",
+        "label": "Red flower chain",
+        "image": "/static/assets/products/crochet-rakhi-5.webp"
+      },
+      {
+        "code": "yellow-flower-chain",
+        "label": "Yellow flower chain",
+        "image": "/static/assets/products/crochet-rakhi-5.webp"
+      }
+    ],
+    "images": [
+      "/static/assets/products/crochet-rakhi-1.webp",
+      "/static/assets/products/crochet-rakhi-2.webp",
+      "/static/assets/products/crochet-rakhi-3.webp",
+      "/static/assets/products/crochet-rakhi-4.webp",
+      "/static/assets/products/crochet-rakhi-5.webp"
+    ],
+    "made_to_order": true
+  },
+  {
+    "sku": "crochet-floral-scrunchie",
+    "name": "Crochet Hair Scrunchie",
+    "category": "Personal Accessories & Clothing",
+    "photo_times": [
+      "09.12.49",
+      "09.12.48",
+      "09.13.05",
+      "09.13.06"
+    ],
+    "price_paise": 16900,
+    "compare_at_paise": 24900,
+    "description": "Handmade crochet hair scrunchie. Colour and floral details vary by piece.",
+    "images": [
+      "/static/assets/products/crochet-floral-scrunchie-1.webp",
+      "/static/assets/products/crochet-floral-scrunchie-2.webp",
+      "/static/assets/products/crochet-floral-scrunchie-3.webp",
+      "/static/assets/products/red-white-floral-scrunchie-1.webp",
+      "/static/assets/products/red-white-floral-scrunchie-2.webp"
+    ],
+    "made_to_order": true
+  },
+  {
+    "sku": "pink-crochet-dress",
+    "name": "Lord Krishna Crochet Dress",
+    "category": "Home Decor",
+    "photo_times": [
+      "09.12.51"
+    ],
+    "price_paise": 59900,
+    "compare_at_paise": 99900,
+    "description": "Handmade pink crochet dress for a Lord Krishna idol.",
+    "images": [
+      "/static/assets/products/pink-crochet-dress-1.webp"
+    ],
+    "made_to_order": true
+  },
+  {
+    "sku": "rust-crochet-sling-bag",
+    "name": "Rust Crochet Sling Bag",
+    "category": "Personal Accessories & Clothing",
+    "photo_times": [
+      "09.12.52"
+    ],
+    "price_paise": 99900,
+    "compare_at_paise": 129900,
+    "description": "Handmade crochet sling bag with a front flap and long strap. Choose a colour.",
+    "style_options": [
+      {
+        "code": "rust",
+        "label": "Rust",
+        "image": "/static/assets/products/rust-crochet-sling-bag-1.webp"
+      },
+      {
+        "code": "blue",
+        "label": "Blue",
+        "image": "/static/assets/products/rust-crochet-sling-bag-blue.webp"
+      },
+      {
+        "code": "red",
+        "label": "Red",
+        "image": "/static/assets/products/rust-crochet-sling-bag-red.webp"
+      },
+      {
+        "code": "olive green",
+        "label": "Olive Green",
+        "image": "/static/assets/products/rust-crochet-sling-bag-olive-green.webp"
+      }
+    ],
+    "images": [
+      "/static/assets/products/rust-crochet-sling-bag-1.webp"
+    ],
+    "made_to_order": true
+  },
+  {
+    "sku": "pink-rose-crochet-bag",
+    "name": "Pink Rose Crochet Bag",
+    "category": "Personal Accessories & Clothing",
+    "photo_times": [
+      "09.12.53"
+    ],
+    "price_paise": 149900,
+    "compare_at_paise": 199900,
+    "description": "Handmade crochet handbag with a floral motif and pearl detail. Choose a colour.",
+    "style_options": [
+      {
+        "code": "pink",
+        "label": "Pink",
+        "image": "/static/assets/products/pink-rose-crochet-bag-1.webp"
+      },
+      {
+        "code": "red",
+        "label": "Red",
+        "image": "/static/assets/products/pink-rose-crochet-bag-red.webp"
+      },
+      {
+        "code": "blue",
+        "label": "Blue",
+        "image": "/static/assets/products/pink-rose-crochet-bag-blue.webp"
+      },
+      {
+        "code": "olive green",
+        "label": "Olive Green",
+        "image": "/static/assets/products/pink-rose-crochet-bag-olive-green.webp"
+      },
+      {
+        "code": "white",
+        "label": "White",
+        "image": "/static/assets/products/pink-rose-crochet-bag-white.webp"
+      },
+      {
+        "code": "black",
+        "label": "Black",
+        "image": "/static/assets/products/pink-rose-crochet-bag-black.webp"
+      }
+    ],
+    "images": [
+      "/static/assets/products/pink-rose-crochet-bag-1.webp"
+    ],
+    "made_to_order": true
+  },
+  {
+    "sku": "orange-cream-crochet-doily",
+    "name": "Orange and Cream Crochet Doily",
+    "category": "Home Decor",
+    "photo_times": [
+      "09.12.54",
+      "09.12.55"
+    ],
+    "price_paise": 169900,
+    "compare_at_paise": 229900,
+    "description": "Handmade round crochet doily with a cream center and orange scalloped border.",
+    "images": [
+      "/static/assets/products/orange-cream-crochet-doily-1.webp",
+      "/static/assets/products/orange-cream-crochet-doily-2.webp"
+    ],
+    "made_to_order": true
+  },
+  {
+    "sku": "pink-crochet-lotus",
+    "name": "Pink Crochet Lotus Flower Set",
+    "category": "Home Decor",
+    "photo_times": [
+      "09.12.57",
+      "09.12.58",
+      "09.12.56"
+    ],
+    "price_paise": 49900,
+    "compare_at_paise": 69900,
+    "description": "Handmade crochet lotus flowers. Choose a set of 2, 3, or 4.",
+    "price_options": [
+      {
+        "code": "set-2",
+        "label": "Set of 2",
+        "price_paise": 49900,
+        "compare_at_paise": 69900
+      },
+      {
+        "code": "set-3",
+        "label": "Set of 3",
+        "price_paise": 69900,
+        "compare_at_paise": 89900
+      },
+      {
+        "code": "set-4",
+        "label": "Set of 4",
+        "price_paise": 79900,
+        "compare_at_paise": 99900
+      }
+    ],
+    "images": [
+      "/static/assets/products/pink-crochet-lotus-1.webp",
+      "/static/assets/products/pink-crochet-lotus-2.webp",
+      "/static/assets/products/pink-crochet-lotus-3.webp"
+    ],
+    "made_to_order": true
+  },
+  {
+    "sku": "blue-crochet-pouch",
+    "name": "Blue Crochet Pouch",
+    "category": "Personal Accessories & Clothing",
+    "photo_times": [
+      "09.12.59"
+    ],
+    "price_paise": 89900,
+    "compare_at_paise": 119900,
+    "description": "Handmade blue crochet pouch with a wrist loop.",
+    "images": [
+      "/static/assets/products/blue-crochet-pouch-1.webp"
+    ],
+    "made_to_order": true
+  },
+  {
+    "sku": "personalised-name-hanging",
+    "name": "Personalised Crochet Name Hanging",
+    "category": "Door Hangings",
+    "photo_times": [
+      "09.13.00"
+    ],
+    "price_paise": 119900,
+    "compare_at_paise": 229900,
+    "description": "Personalized handmade crochet name hanging. Enter the name you would like us to make.",
+    "badge": "New launch",
+    "personalisation": {
+      "label": "Name for the hanging"
+    },
+    "images": [
+      "/static/assets/products/personalised-name-hanging-1.webp"
+    ],
+    "made_to_order": true
+  },
+  {
+    "sku": "crochet-mandala",
+    "name": "Colourful Crochet Mandala",
+    "category": "Home Decor",
+    "photo_times": [
+      "09.13.01"
+    ],
+    "price_paise": 169900,
+    "compare_at_paise": 219900,
+    "description": "Handmade colorful crochet mandala. Designs and colors may vary.",
+    "images": [
+      "/static/assets/products/crochet-mandala-1.webp"
+    ],
+    "made_to_order": true
+  },
+  {
+    "sku": "pink-pearl-crochet-handbag",
+    "name": "Pink Pearl Crochet Handbag",
+    "category": "Personal Accessories & Clothing",
+    "photo_times": [
+      "09.13.04",
+      "09.13.03",
+      "09.13.02"
+    ],
+    "price_paise": 229900,
+    "compare_at_paise": 279900,
+    "description": "Handmade crochet handbag with pearl-chain detail. Photos show different views and shades.",
+    "images": [
+      "/static/assets/products/pink-pearl-crochet-handbag-1.webp",
+      "/static/assets/products/pink-pearl-crochet-handbag-2.webp",
+      "/static/assets/products/pink-pearl-crochet-handbag-3.webp"
+    ],
+    "made_to_order": true
+  },
+  {
+    "sku": "white-crochet-lily-bouquet",
+    "name": "White Crochet Lily Bouquet",
+    "category": "Home Decor",
+    "photo_times": [
+      "09.13.08",
+      "09.13.07"
+    ],
+    "price_paise": 79900,
+    "compare_at_paise": 119900,
+    "description": "Handmade bouquet of white crochet lilies with green leaves.",
+    "images": [
+      "/static/assets/products/white-crochet-lily-bouquet-1.webp",
+      "/static/assets/products/white-crochet-lily-bouquet-2.webp"
+    ],
+    "made_to_order": true
+  },
+  {
+    "sku": "shubh-lotus-door-hanging",
+    "name": "Shubh Lotus Door Hanging",
+    "category": "Door Hangings",
+    "photo_times": [
+      "09.13.09"
+    ],
+    "price_paise": 49900,
+    "compare_at_paise": 79900,
+    "description": "Handmade lotus crochet door hanging with Shubh lettering, beads, and hanging flowers.",
+    "images": [
+      "/static/assets/products/shubh-lotus-door-hanging-1.webp"
+    ],
+    "made_to_order": true
+  },
+  {
+    "sku": "floral-crochet-toran",
+    "name": "Floral Crochet Door Toran",
+    "category": "Door Hangings",
+    "photo_times": [
+      "09.13.10"
+    ],
+    "price_paise": 89900,
+    "compare_at_paise": 129900,
+    "images": [
+      "/static/assets/products/floral-crochet-toran-1.webp"
+    ],
+    "description": "Handmade floral crochet door toran with pink, cream and gold details.",
+    "made_to_order": true
+  },
+  {
+    "sku": "gold-red-crochet-doily",
+    "name": "Gold and Red Crochet Doily",
+    "category": "Home Decor",
+    "photo_times": [
+      "09.13.11"
+    ],
+    "price_paise": 99900,
+    "compare_at_paise": 159900,
+    "images": [
+      "/static/assets/products/gold-red-crochet-doily-1.webp"
+    ],
+    "description": "Handmade crochet doily with a gold center and deep red border.",
+    "made_to_order": true
+  },
+  {
+    "sku": "crochet-lotus-tealight-holder",
+    "name": "Crochet Lotus LED Tealight Holders \u2014 Pair",
+    "category": "Home Decor",
+    "photo_times": [
+      "09.13.12"
+    ],
+    "price_paise": 89900,
+    "compare_at_paise": 139900,
+    "images": [
+      "/static/assets/products/crochet-lotus-tealight-holder-1.webp"
+    ],
+    "description": "Pair of handmade lotus crochet holders. Use with LED or battery-operated tealights only.",
+    "made_to_order": true
+  },
+  {
+    "sku": "pink-crochet-table-doily",
+    "name": "Pink Crochet Table Doily",
+    "category": "Home Decor",
+    "photo_times": [
+      "09.13.13"
+    ],
+    "price_paise": 159900,
+    "compare_at_paise": 219900,
+    "images": [
+      "/static/assets/products/pink-crochet-table-doily-1.webp"
+    ],
+    "description": "Handmade pink and gold crochet table doily. Vase and flowers are shown for styling only.",
+    "made_to_order": true
+  }
+]
