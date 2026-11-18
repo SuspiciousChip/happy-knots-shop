@@ -41,7 +41,7 @@
         <div class="owner-image-previews" id="ownerImagePreviews" aria-live="polite"></div>
         <div class="owner-product-actions"><button class="button" id="ownerProductSubmit">List product</button><p id="ownerProductMessage" role="status"></p></div>
       </form>
-      <div class="owner-listed-products"><h3>Manage listed products</h3><div class="owner-product-list">{% for product in recent_products %}<article><img src="{{ product.image }}" alt=""><span><strong>{{ product.name }}</strong><small>{{ product.category }} · ₹{{ product.price_paise|money }}</small></span><span class="owner-product-links"><a href="/owner/products/{{ product.id }}/edit">Edit</a><a href="/products/{{ product.id }}">View</a></span></article>{% endfor %}</div></div>
+      <div class="owner-listed-products"><h3>Manage listed products</h3><div class="owner-product-list">{% for product in recent_products %}<article><img src="{{ product.image }}" alt=""><span><strong>{{ product.name }}</strong><small>{{ product.category }} · ₹{{ product.price_paise|money }}</small></span><span class="owner-product-links"><a class="owner-product-edit" href="/owner/products/{{ product.id }}/edit">Edit</a><a class="owner-product-view" href="/products/{{ product.id }}">View</a></span></article>{% endfor %}</div></div>
     </section>
     <section class="owner-panel" id="security">
       <div class="owner-toolbar"><div><span class="eyebrow">Account protection</span><h2>Security activity</h2><p>Recent owner sign-ins, verification attempts, and management changes.</p></div></div>
