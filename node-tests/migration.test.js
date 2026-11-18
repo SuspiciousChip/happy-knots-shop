@@ -105,6 +105,8 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.match(env.render('account.html', base), /name="landmark"/);
   assert.match(env.render('account.html', base), /\+91 is already included/);
   assert.match(env.render('account.html', base), /Select a state or UT/);
+  assert.doesNotMatch(env.render('account.html', base), /Open owner portal/);
+  assert.match(env.render('account.html', { ...base, is_owner: true }), /href="\/owner">Open owner portal/);
   assert.doesNotMatch(env.render('account.html', base).split('</title>')[0], /<script>/);
   const order = { id: 11, subtotal_paise: 2400, shipping_paise: 8000, total_paise: 10400, items: [{ product_name: 'Flower', quantity: 2, unit_price_paise: 1200 }] };
   const orderPage = env.render('customer_order.html', { ...base, order, clear_cart: true });

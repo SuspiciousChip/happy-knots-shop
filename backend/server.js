@@ -60,7 +60,7 @@ const testPayments = database.collection('razorpay_test_payments');
 const productImages = new GridFSBucket(database, { bucketName: 'product_images' });
 const catalogDrafts = JSON.parse(fs.readFileSync(path.join(projectRoot, 'database/product-drafts.json'), 'utf8'));
 const env = nunjucks.configure(path.join(projectRoot, 'frontend', 'templates'), { autoescape: true, noCache: process.env.NODE_ENV !== 'production' });
-const render = (res, name, data = {}) => res.send(env.render(name, { csrf: res.locals.csrf, customer: res.locals.customer, ...data }));
+const render = (res, name, data = {}) => res.send(env.render(name, { csrf: res.locals.csrf, customer: res.locals.customer, is_owner: isOwner(res.locals.customer), ...data }));
 env.addFilter('money', n => (Number(n || 0) / 100).toFixed(2));
 env.addFilter('json_safe', x => new nunjucks.runtime.SafeString(JSON.stringify(x).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')));
 env.addFilter('urlencode', x => encodeURIComponent(x));

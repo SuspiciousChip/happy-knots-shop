@@ -10,7 +10,7 @@
   </form>
 </header>
 <main class="account-page">
-  <div class="account-intro"><h1>My account</h1><p>{{ customer.email }}</p></div>
+  <div class="account-intro"><h1>My account</h1><p>{{ customer.email }}</p>{% if is_owner %}<a class="button owner-portal-shortcut" href="/owner">Open owner portal →</a>{% endif %}</div>
   <nav class="account-nav" aria-label="Account sections"><a href="#orders">My orders</a><a href="#addresses">Saved addresses</a></nav>
   <section id="orders" class="account-section" aria-labelledby="orders-title">
     <h2 id="orders-title">My orders</h2>
