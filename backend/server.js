@@ -53,6 +53,7 @@ const loginLimits = database.collection('login_rate_limits');
 const customers = database.collection('customers');
 const categories = database.collection('customer_totals');
 const testPayments = database.collection('razorpay_test_payments');
+const catalogDrafts = JSON.parse(fs.readFileSync(path.join(projectRoot, 'database/product-drafts.json'), 'utf8'));
 const env = nunjucks.configure(path.join(projectRoot, 'frontend', 'templates'), { autoescape: true, noCache: process.env.NODE_ENV !== 'production' });
 const render = (res, name, data = {}) => res.send(env.render(name, { csrf: res.locals.csrf, customer: res.locals.customer, ...data }));
 env.addFilter('money', n => (Number(n || 0) / 100).toFixed(2));
@@ -103,6 +104,36 @@ const errorPage = (res, title, message, status = 200) => res.status(status).send
 async function nextId(name, session) {
   const result = await counters.findOneAndUpdate({ _id: name }, { $inc: { value: 1 } }, { upsert: true, returnDocument: 'after', session });
   return result.value;
+}
+function catalogProduct(row) {
+  const variants = row.price_options || row.style_options || [];
+  return {
+    sku: row.sku, name: row.name, category: row.category, tags: [row.category], description: row.description,
+    image: row.images[0], images: row.images,
+    variants: variants.map(v => ({ code: v.code, label: v.label, image: v.image || row.images[0], price_paise: v.price_paise || row.price_paise, compare_at_paise: v.compare_at_paise || row.compare_at_paise })),
+    price_paise: row.price_paise, compare_at_paise: row.compare_at_paise,
+    personalisation: row.personalisation || null, badge: row.badge || null,
+    made_to_order: true, stock: 9999, active: 1, version: 1, units: 0, sales_revenue: 0
+  };
+}
+async function publishInitialCatalog() {
+  const migration = database.collection('migration');
+  const markerId = 'product-catalog-2026-11-18';
+  if (await migration.findOne({ _id: markerId })) return;
+  const transaction = connection.startSession();
+  try {
+    await transaction.withTransaction(async () => {
+      if (await migration.findOne({ _id: markerId }, { session: transaction })) return;
+      const highest = await products.find({}, { session: transaction }).sort({ id: -1 }).limit(1).next();
+      await counters.updateOne({ _id: 'products' }, { $max: { value: highest?.id || 0 } }, { upsert: true, session: transaction });
+      for (const row of catalogDrafts) {
+        if (await products.findOne({ sku: row.sku }, { session: transaction })) continue;
+        const id = await nextId('products', transaction);
+        await products.insertOne({ ...catalogProduct(row), id }, { session: transaction });
+      }
+      await migration.insertOne({ _id: markerId, state: 'READY', product_count: catalogDrafts.length, created_at: now() }, { session: transaction });
+    });
+  } finally { await transaction.endSession(); }
 }
 async function catalog() { return products.find({ active: 1 }).project({ id: 1, name: 1, tags: 1, category: 1, description: 1, price_paise: 1, compare_at_paise: 1, image: 1, images: 1, variants: 1, personalisation: 1, badge: 1, made_to_order: 1, stock: 1 }).sort({ id: -1 }).toArray(); }
 const tagNames = ['Personal Accessories & Clothing', 'Door Hangings', 'Wall Hangings', 'Home Decor'];
@@ -372,11 +403,12 @@ export async function init() {
   const marker = await database.collection('migration').findOne({ _id: 'happy-knots' });
   if (marker?.state !== 'READY') throw new Error('Atlas migration is not verified; run migrate-to-atlas.js first');
   await Promise.all([
-    products.createIndex({ id: 1 }, { unique: true }), products.createIndex({ active: 1, id: -1 }), orders.createIndex({ id: 1 }, { unique: true }),
+    products.createIndex({ id: 1 }, { unique: true }), products.createIndex({ sku: 1 }, { unique: true, sparse: true }), products.createIndex({ active: 1, id: -1 }), orders.createIndex({ id: 1 }, { unique: true }),
     orders.createIndex({ id: -1 }), orders.createIndex({ customer_sub: 1, id: -1 }), categories.createIndex({ email: 1 }, { unique: true }),
     sessions.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
     testPayments.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
     loginLimits.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 })]);
+  await publishInitialCatalog();
   return app;
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
