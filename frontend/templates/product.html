@@ -13,7 +13,7 @@
     <a href="/shop">← Back to products</a>
     <p class="eyebrow">{{ product.badge or 'Handmade crochet' }}</p>
     <h1>{{ product.name }}</h1>
-    <p class="detail-price" id="detailPrice">{% if product.compare_at_paise %}<del aria-label="Regular price">₹{{ product.compare_at_paise|money }}</del>{% endif %}<strong>₹{{ product.price_paise|money }}</strong></p>
+    <p class="detail-price" id="detailPrice">{% if product.compare_at_paise %}<del aria-label="Regular price">₹{{ product.compare_at_paise|money }}</del>{% endif %}<strong>₹{{ product.price_paise|money }}</strong>{% if product.discount_percent %}<span class="discount-badge">{{ product.discount_percent }}% off</span>{% endif %}</p>
     <p>{{ product.description }}</p>
     {% if product.variants|length %}<label class="variant-choice" for="productVariant">Choose {{ 'set size' if product.name == 'Pink Crochet Lotus Flower Set' else 'style or colour' }}</label>
     <select id="productVariant" required><option value="">Select an option</option>{% for variant in product.variants %}<option value="{{ variant.code }}">{{ variant.label }}</option>{% endfor %}</select>{% if product.variants[0].image %}<p class="detail-note">Colour previews are illustrative; handmade pieces may vary slightly.</p>{% endif %}{% endif %}
@@ -27,5 +27,5 @@
 {% include 'bag.html' %}
 <script>const products={{ product_json|json_safe }};</script>
 <script src="/static/shop-motion.js?v=viewport-flip-1" defer></script>
-<script src="/static/shop.js?v=cart-2"></script>
+<script src="/static/shop.js?v=discounts-1"></script>
 {% endblock %}

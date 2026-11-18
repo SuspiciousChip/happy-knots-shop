@@ -14,7 +14,7 @@ import { INDIAN_STATES_AND_UTS, parseAddress, isCompleteAddress, formatAddress }
 import { verifyRecaptcha } from './recaptcha.js';
 import { shippingPaise, FREE_SHIPPING_THRESHOLD_PAISE, STANDARD_SHIPPING_PAISE } from './shipping.js';
 import { searchProducts } from './search.js';
-import { checkoutSelection, pricedLines } from './catalog-options.js';
+import { checkoutSelection, discountPercent, pricedLines } from './catalog-options.js';
 import { createTestOrder, fetchTestPayment, isCapturedPayment, testCredentials, verifyPaymentSignature } from './razorpay.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
@@ -138,7 +138,7 @@ async function publishInitialCatalog() {
 async function catalog() { return products.find({ active: 1 }).project({ id: 1, name: 1, tags: 1, category: 1, description: 1, price_paise: 1, compare_at_paise: 1, image: 1, images: 1, variants: 1, personalisation: 1, badge: 1, made_to_order: 1, stock: 1 }).sort({ id: -1 }).toArray(); }
 const tagNames = ['Personal Accessories & Clothing', 'Door Hangings', 'Wall Hangings', 'Home Decor'];
 const tagsFor = p => Array.isArray(p.tags) ? p.tags.filter(t => tagNames.includes(t)) : tagNames.includes(p.category) ? [p.category] : [];
-const publicProduct = p => ({ id: p.id, name: p.name, tags: tagsFor(p), description: p.description, price_paise: p.price_paise, compare_at_paise: p.compare_at_paise > p.price_paise ? p.compare_at_paise : null, image: p.image, images: Array.isArray(p.images) ? p.images : [], variants: Array.isArray(p.variants) ? p.variants : [], personalisation: p.personalisation || null, badge: p.badge || null, made_to_order: !!p.made_to_order, stock: p.stock });
+const publicProduct = p => ({ id: p.id, name: p.name, tags: tagsFor(p), description: p.description, price_paise: p.price_paise, compare_at_paise: p.compare_at_paise > p.price_paise ? p.compare_at_paise : null, discount_percent: discountPercent(p.price_paise, p.compare_at_paise), image: p.image, images: Array.isArray(p.images) ? p.images : [], variants: Array.isArray(p.variants) ? p.variants.map(v => ({ ...v, discount_percent: discountPercent(v.price_paise, v.compare_at_paise) })) : [], personalisation: p.personalisation || null, badge: p.badge || null, made_to_order: !!p.made_to_order, stock: p.stock });
 app.get('/', wrap(async (req, res) => {
   const listing = (await catalog()).map(publicProduct);
   render(res, 'shop.html', { products: listing.slice(0, 6), product_json: listing });

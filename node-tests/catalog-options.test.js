@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { checkoutSelection, pricedLines } from '../backend/catalog-options.js';
+import { checkoutSelection, discountPercent, pricedLines } from '../backend/catalog-options.js';
 
 const product = { id: 7, active: 1, stock: 3, name: 'Lotus set', price_paise: 49900, variants: [
   { code: 'set-2', label: 'Set of 2', price_paise: 49900 },
@@ -21,4 +21,12 @@ test('personalized name is required and saved with the order line', () => {
   assert.equal(pricedLines([named], selection)[0].personalisation, 'Sarth');
   assert.equal(pricedLines([named], checkoutSelection([{ id: 8, variant: '', personalisation: '', quantity: 1 }])), null);
   assert.equal(pricedLines([named], checkoutSelection([{ id: 8, variant: '', personalisation: 'A longer custom name', quantity: 1 }]))[0].personalisation, 'A longer custom name');
+});
+
+test('discount percentage is rounded from the genuine regular price', () => {
+  assert.equal(discountPercent(19900, 39900), 50);
+  assert.equal(discountPercent(16900, 24900), 32);
+  assert.equal(discountPercent(49900, 69900), 29);
+  assert.equal(discountPercent(49900, 49900), null);
+  assert.equal(discountPercent(59900, 49900), null);
 });

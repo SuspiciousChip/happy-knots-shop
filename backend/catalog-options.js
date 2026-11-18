@@ -31,3 +31,8 @@ export function pricedLines(selected, selection) {
   }
   return result;
 }
+
+export function discountPercent(pricePaise, compareAtPaise) {
+  if (!Number.isSafeInteger(pricePaise) || !Number.isSafeInteger(compareAtPaise) || compareAtPaise <= pricePaise || pricePaise < 0) return null;
+  return Math.round(((compareAtPaise - pricePaise) / compareAtPaise) * 100);
+}

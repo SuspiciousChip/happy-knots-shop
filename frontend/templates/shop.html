@@ -50,7 +50,7 @@
       {% for p in products %}
       <article class="product" data-reveal>
         <a href="/products/{{ p.id }}"><div class="product-photo"><img src="{{ p.image or '/static/assets/935e89b0ce0944d3.jpg' }}" alt="{{ p.name }}" loading="lazy" decoding="async"></div></a>
-        <div class="product-info"><small>{{ p.badge ~ " · " if p.badge else "" }}{{ p.tags|join(', ') }}</small><h3><a href="/products/{{ p.id }}">{{ p.name }}</a></h3><p>{{ p.description }}</p><div class="product-bottom"><span class="product-prices">{% if p.compare_at_paise %}<del aria-label="Regular price">₹{{ p.compare_at_paise|money }}</del>{% endif %}<strong>₹{{ p.price_paise|money }}</strong></span>{% if (p.variants|length or p.personalisation) and p.stock > 0 %}<a class="button" href="/products/{{ p.id }}">Choose option</a>{% else %}<button class="button" data-add="{{ p.id }}" {% if p.stock < 1 %}disabled{% endif %}>{{ 'Sold out' if p.stock < 1 else 'Add to bag' }}</button>{% endif %}</div></div>
+        <div class="product-info"><small>{{ p.badge ~ " · " if p.badge else "" }}{{ p.tags|join(', ') }}</small><h3><a href="/products/{{ p.id }}">{{ p.name }}</a></h3><p>{{ p.description }}</p><div class="product-bottom"><span class="product-prices">{% if p.compare_at_paise %}<del aria-label="Regular price">₹{{ p.compare_at_paise|money }}</del>{% endif %}<strong>₹{{ p.price_paise|money }}</strong>{% if p.discount_percent %}<span class="discount-badge">{{ p.discount_percent }}% off</span>{% endif %}</span>{% if (p.variants|length or p.personalisation) and p.stock > 0 %}<a class="button" href="/products/{{ p.id }}">Choose option</a>{% else %}<button class="button" data-add="{{ p.id }}" {% if p.stock < 1 %}disabled{% endif %}>{{ 'Sold out' if p.stock < 1 else 'Add to bag' }}</button>{% endif %}</div></div>
       </article>
       {% else %}<p>Handmade pieces are coming soon.</p>{% endfor %}
     </div>
@@ -76,5 +76,5 @@
 </main>
 {% include 'bag.html' %}
 <script nonce="{{ csp_nonce }}">const products={{ product_json|json_safe }};</script>
-<script src="/static/shop-motion.js?v=about-us-1" defer></script><script src="/static/shop.js?v=cart-2"></script><script src="/static/search.js" defer></script>
+<script src="/static/shop-motion.js?v=about-us-1" defer></script><script src="/static/shop.js?v=discounts-1"></script><script src="/static/search.js" defer></script>
 {% endblock %}
