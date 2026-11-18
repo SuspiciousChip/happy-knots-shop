@@ -52,6 +52,13 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.match(shopPage, /Terms and conditions/);
   assert.match(shopPage, /mailto:h4appy\.knots\.official@gmail\.com/);
   assert.equal((shopPage.match(/class="site-footer"/g) || []).length, 1);
+  assert.match(shopPage, /href="\/about">Our story/);
+  assert.doesNotMatch(shopPage, /id="story"|The people behind/);
+  const aboutPage = env.render('about.html', base);
+  assert.match(aboutPage, /Made by hand/);
+  assert.match(aboutPage, /Rakhi Dixit/);
+  assert.match(aboutPage, /Aryan Dixit/);
+  assert.match(aboutPage, /href="\/about">About us/);
   assert.match(env.render('contact.html', base), /order support, product questions, and general queries/);
   const termsPage = env.render('terms.html', base);
   assert.match(shopPage, /href="\/terms"/);
@@ -115,6 +122,7 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.match(ownerPage, /id="analyticsChart"/);
   assert.match(ownerPage, /id="ownerProductForm"/);
   assert.match(ownerPage, /name="regular_price"/);
+  assert.match(ownerPage, /name="colors"/);
   const ownerOrderPage = env.render('owner_order.html', { ...base, customer: { email: 'aryandixit2905@gmail.com' }, order: ownerOrder, statuses: ['new', 'delivered'], updated: false });
   assert.match(ownerOrderPage, /action="\/owner\/orders\/11\/status"/);
   assert.match(ownerOrderPage, /Personalisation|Test Customer/);

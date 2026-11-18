@@ -5,7 +5,7 @@
 <div class="announcement">Handmade crochet by Rakhi Dixit</div>
 <header class="site-header">
   <a href="/" class="logo"><img src="/static/assets/happy-knots-logo.webp" alt="The Happy Knots"></a>
-  <nav><a href="/shop">Shop</a><a href="#story">Our story</a></nav>
+  <nav><a href="/shop">Shop</a><a href="/about">Our story</a></nav>
   {% set search_id = 'home-search' %}{% include 'search_box.html' %}
   <a class="account-link" href="{{ '/account' if customer else '/account/login' }}">{{ 'My account' if customer else 'Sign in' }}</a>
   {% include 'cart_button.html' %}
@@ -55,23 +55,6 @@
       {% else %}<p>Handmade pieces are coming soon.</p>{% endfor %}
     </div>
     <a class="button" href="/shop" style="margin-top:32px">Shop all products →</a>
-  </section>
-  <section class="about-section" id="story" aria-labelledby="story-title">
-    <div class="about-intro wrap" data-reveal>
-      <span class="eyebrow">About us</span>
-      <h2 id="story-title">The people behind<br>the knots.</h2>
-      <p>The Happy Knots began with Rakhi’s love of making things by hand. Today, Rakhi and Aryan are building a place to share that creativity with more people.</p>
-    </div>
-    <div class="about-people wrap">
-      <article class="about-person" data-reveal>
-        <div class="about-portrait"><img src="/static/assets/about/rakhi-dixit.webp" alt="Rakhi Dixit, maker and founder of The Happy Knots" width="1024" height="1536" loading="lazy" decoding="async"></div>
-        <div class="about-person-copy"><span class="eyebrow">Maker &amp; founder</span><h3>Rakhi Dixit</h3><p>What started as a hobby became The Happy Knots. Rakhi makes the crochet pieces and looks forward to growing the business, one handmade creation at a time.</p></div>
-      </article>
-      <article class="about-person" data-reveal>
-        <div class="about-portrait about-portrait-aryan"><img src="/static/assets/about/aryan-dixit-night.webp" alt="Aryan Dixit, co-founder and online executive of The Happy Knots" width="1200" height="1600" loading="lazy" decoding="async"></div>
-        <div class="about-person-copy"><span class="eyebrow">Co-founder · Marketing manager · Online executive</span><h3>Aryan Dixit</h3><p>Aryan leads the online side of The Happy Knots, from marketing to the customer experience. He is working to bring Rakhi’s handmade creations to more people.</p></div>
-      </article>
-    </div>
   </section>
 </main>
 {% include 'bag.html' %}

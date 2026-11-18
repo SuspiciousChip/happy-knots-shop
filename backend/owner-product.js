@@ -35,6 +35,8 @@ export function ownerProductDraft(body, categories) {
   const images = rawImages.length >= 1 && rawImages.length <= 4 ? rawImages.map(decodeProductImage) : [];
   const keywords = text(body?.tags, 300).split(',').map(tag => tag.trim().toLowerCase()).filter(Boolean);
   const uniqueKeywords = [...new Set(keywords)];
-  if (name.length < 3 || description.length < 20 || !categories.includes(category) || !price_paise || !compare_at_paise || compare_at_paise <= price_paise || images.length !== rawImages.length || uniqueKeywords.length > 10 || uniqueKeywords.some(tag => tag.length > 30)) return null;
-  return { name, description, category, price_paise, compare_at_paise, keywords: uniqueKeywords, images };
+  const colors = text(body?.colors, 500).split(',').map(color => color.trim()).filter(Boolean);
+  const uniqueColors = colors.filter((color, index) => colors.findIndex(candidate => candidate.toLocaleLowerCase('en-IN') === color.toLocaleLowerCase('en-IN')) === index);
+  if (name.length < 3 || description.length < 20 || !categories.includes(category) || !price_paise || !compare_at_paise || compare_at_paise <= price_paise || images.length !== rawImages.length || uniqueKeywords.length > 10 || uniqueKeywords.some(tag => tag.length > 30) || uniqueColors.length > 12 || uniqueColors.some(color => color.length > 40)) return null;
+  return { name, description, category, price_paise, compare_at_paise, keywords: uniqueKeywords, colors: uniqueColors, images };
 }

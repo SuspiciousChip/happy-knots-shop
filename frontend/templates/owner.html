@@ -35,6 +35,7 @@
         <label>Selling price (₹)<input name="selling_price" type="number" min="1" max="999999" step="0.01" required placeholder="799"></label>
         <label>Regular price (₹)<input name="regular_price" type="number" min="1" max="999999" step="0.01" required placeholder="1199"><small>Must be a genuine regular price higher than the selling price.</small></label>
         <label class="owner-product-wide">Search tags <span class="optional">(optional)</span><input name="tags" maxlength="300" placeholder="bouquet, flower, gift"><small>Separate up to 10 tags with commas.</small></label>
+        <label class="owner-product-wide">Available colours <span class="optional">(optional)</span><input name="colors" maxlength="500" placeholder="Red, Blue, Olive Green"><small>Separate up to 12 colours with commas. Upload one image per colour in the same order to make the product image change with the selection; otherwise the cover image is used.</small></label>
         <label class="owner-product-wide">Description<textarea name="description" required minlength="20" maxlength="2000" placeholder="Describe the materials, colours and what the customer receives."></textarea></label>
         <label class="owner-product-wide">Product images<input id="ownerProductImages" name="image_files" type="file" accept="image/jpeg,image/png,image/webp" multiple required><small>Upload 1–4 JPG, PNG or WebP images, maximum 5 MB each. The first image becomes the cover.</small></label>
         <div class="owner-image-previews" id="ownerImagePreviews" aria-live="polite"></div>

@@ -183,6 +183,7 @@ app.get('/', wrap(async (req, res) => {
   const listing = (await catalog()).map(publicProduct);
   render(res, 'shop.html', { products: listing.slice(0, 6), product_json: listing });
 }));
+app.get('/about', (_req, res) => render(res, 'about.html'));
 app.get('/contact', (_req, res) => render(res, 'contact.html'));
 app.get('/terms', (_req, res) => render(res, 'terms.html'));
 app.get('/privacy', (_req, res) => render(res, 'privacy.html'));
@@ -463,9 +464,16 @@ app.post('/owner/products', ownerOnly, express.json({ limit: '28mb' }), csrf, wr
     for (const [index, image] of draft.images.entries()) imageIds.push(await storeProductImage(image, `product-${Date.now()}-${index}`));
     const imageUrls = imageIds.map(id => `/media/products/${id}`);
     const id = await nextId('products');
+    const variants = draft.colors.map((label, index) => ({
+      code: `color-${index + 1}`,
+      label,
+      image: imageUrls[index] || imageUrls[0],
+      price_paise: draft.price_paise,
+      compare_at_paise: draft.compare_at_paise
+    }));
     await products.insertOne({
       id, sku: `owner-${id}`, name: draft.name, category: draft.category, tags: [draft.category], keywords: draft.keywords,
-      description: draft.description, image: imageUrls[0], images: imageUrls, variants: [],
+      description: draft.description, image: imageUrls[0], images: imageUrls, variants,
       price_paise: draft.price_paise, compare_at_paise: draft.compare_at_paise,
       personalisation: null, badge: 'New', made_to_order: true, stock: 9999, active: 1, version: 1,
       units: 0, sales_revenue: 0, created_at: now(), created_by: res.locals.customer.email
