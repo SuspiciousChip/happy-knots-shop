@@ -10,6 +10,7 @@ import nunjucks from 'nunjucks';
 import { GridFSBucket, MongoClient, ObjectId } from 'mongodb';
 import dotenv from 'dotenv';
 import * as oidc from 'openid-client';
+import QRCode from 'qrcode';
 import { INDIAN_STATES_AND_UTS, parseAddress, isCompleteAddress, formatAddress } from './address.js';
 import { verifyRecaptcha } from './recaptcha.js';
 import { shippingPaise, FREE_SHIPPING_THRESHOLD_PAISE, STANDARD_SHIPPING_PAISE } from './shipping.js';
@@ -20,6 +21,8 @@ import { appBaseUrl } from './base-url.js';
 import { isOrderStatus, isOwner, ORDER_STATUSES } from './owner-access.js';
 import { ownerProductDraft } from './owner-product.js';
 import { orderAnalytics } from './analytics.js';
+import { decryptValue, encryptValue } from './secure-data.js';
+import { generateTotpSecret, totpUri, verifyTotp } from './owner-mfa.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(root, '..');
@@ -57,6 +60,8 @@ const loginLimits = database.collection('login_rate_limits');
 const customers = database.collection('customers');
 const categories = database.collection('customer_totals');
 const testPayments = database.collection('razorpay_test_payments');
+const ownerMfa = database.collection('owner_mfa');
+const ownerAudit = database.collection('owner_security_audit');
 const productImages = new GridFSBucket(database, { bucketName: 'product_images' });
 const catalogDrafts = JSON.parse(fs.readFileSync(path.join(projectRoot, 'database/product-drafts.json'), 'utf8'));
 const env = nunjucks.configure(path.join(projectRoot, 'frontend', 'templates'), { autoescape: true, noCache: process.env.NODE_ENV !== 'production' });
@@ -86,10 +91,47 @@ const digest = value => crypto.createHash('sha256').update(value).digest('hex');
 const equal = (a, b) => typeof a === 'string' && typeof b === 'string' && crypto.timingSafeEqual(Buffer.from(digest(a)), Buffer.from(digest(b)));
 const sign = value => `${value}.${crypto.createHmac('sha256', process.env.FLASK_SECRET_KEY).update(value).digest('base64url')}`;
 const unsign = value => { if (!value) return null; const index = value.lastIndexOf('.'); const raw = value.slice(0, index); return index > 0 && equal(sign(raw), value) ? raw : null; };
+const sessionDays = Math.min(Math.max(Number(process.env.SESSION_DAYS) || 30, 1), 30);
+const sessionLifetime = sessionDays * 86400000;
+const ownerMfaLifetime = 12 * 60 * 60 * 1000;
+const encryptedRefresh = token => encryptValue(token, process.env.FLASK_SECRET_KEY, 'cognito-refresh-token');
+const decryptedRefresh = token => decryptValue(token, process.env.FLASK_SECRET_KEY, 'cognito-refresh-token');
+const encryptedMfa = secret => encryptValue(secret, process.env.FLASK_SECRET_KEY, 'owner-mfa-secret');
+const decryptedMfa = secret => decryptValue(secret, process.env.FLASK_SECRET_KEY, 'owner-mfa-secret');
+async function auditOwner(event, req, details = {}) {
+  const customer = resCustomer(req);
+  await ownerAudit.insertOne({
+    event, owner_email: customer?.email || null, customer_sub: customer?.sub || null,
+    ip: String(req.ip || req.socket.remoteAddress || '').slice(0, 100),
+    user_agent: String(req.get('user-agent') || '').slice(0, 300), details, created_at: now()
+  });
+}
+const resCustomer = req => req.login?.customer || null;
 app.use(async (req, res, next) => {
   try {
     const sid = unsign(req.cookies.hk_session);
-    const row = sid ? await sessions.findOne({ _id: digest(sid), expires_at: { $gt: new Date() } }) : null;
+    let row = sid ? await sessions.findOne({ _id: digest(sid), expires_at: { $gt: new Date() } }) : null;
+    if (row?.customer && row.auth_expires_at <= Date.now() && row.refresh_token_encrypted && row.refresh_expires_at > Date.now()) {
+      try {
+        const refreshToken = decryptedRefresh(row.refresh_token_encrypted);
+        const config = await cognito();
+        if (!config) throw new Error('Cognito is not configured');
+        const tokens = await oidc.refreshTokenGrant(config, refreshToken);
+        const replacement = tokens.refresh_token || refreshToken;
+        const accessLifetime = Math.min((tokens.expiresIn() || 3600) * 1000, 3600000);
+        const update = {
+          auth_expires_at: Date.now() + accessLifetime,
+          refresh_token_encrypted: encryptedRefresh(replacement),
+          refreshed_at: now()
+        };
+        await sessions.updateOne({ _id: row._id }, { $set: update });
+        row = { ...row, ...update };
+      } catch (error) {
+        console.warn('Session refresh failed', error?.code || error?.message || 'unknown');
+        await sessions.deleteOne({ _id: row._id });
+        row = null;
+      }
+    }
     if (!row && req.cookies.hk_session) res.clearCookie('hk_session');
     req.sid = row ? sid : null; req.login = row || {}; res.locals.csrf = row?.csrf;
     res.locals.customer = row?.customer && row.auth_expires_at > Date.now() ? row.customer : null;
@@ -97,12 +139,22 @@ app.use(async (req, res, next) => {
   } catch (error) { next(error); }
 });
 const customerOnly = (req, res, next) => res.locals.customer ? next() : res.redirect('/account/login?next=' + encodeURIComponent(req.originalUrl));
-const ownerOnly = (req, res, next) => {
+const ownerIdentityOnly = (req, res, next) => {
   if (!res.locals.customer) return res.redirect('/account/login?next=' + encodeURIComponent(req.originalUrl));
-  if (!isOwner(res.locals.customer)) return res.sendStatus(404);
+  if (!isOwner(res.locals.customer)) {
+    auditOwner('owner_access_denied', req, { path: req.originalUrl }).catch(() => {});
+    return res.sendStatus(404);
+  }
   res.set('Cache-Control', 'private, no-store');
   next();
 };
+const ownerOnly = (req, res, next) => ownerIdentityOnly(req, res, async () => {
+  try {
+    if (!req.login.owner_mfa_verified_at || Date.now() - req.login.owner_mfa_verified_at > ownerMfaLifetime)
+      return res.redirect('/owner/mfa?next=' + encodeURIComponent(req.originalUrl));
+    next();
+  } catch (error) { next(error); }
+});
 const testPaymentsReady = () => {
   if (process.env.RENDER === 'true' || process.env.NODE_ENV === 'production' || process.env.RAZORPAY_TEST_CHECKOUT !== 'true') return false;
   try { testCredentials(); return true; } catch { return false; }
@@ -386,12 +438,28 @@ app.get('/account/callback', wrap(async (req, res) => {
   await customers.updateOne({ _id: customer.sub }, { $set: { email: customer.email, updated_at: now() }, $setOnInsert: { addresses: [], created_at: now() } }, { upsert: true });
   const sid = random();
   const lifetime = Math.min((tokens.expiresIn() || 3600) * 1000, 3600000);
-  await sessions.insertOne({ _id: digest(sid), csrf: random(), customer, auth_expires_at: Date.now() + lifetime, expires_at: new Date(Date.now() + lifetime) });
+  const refreshToken = tokens.refresh_token;
+  const persistedLifetime = refreshToken ? sessionLifetime : lifetime;
+  await sessions.insertOne({
+    _id: digest(sid), csrf: random(), customer, auth_expires_at: Date.now() + lifetime,
+    refresh_token_encrypted: refreshToken ? encryptedRefresh(refreshToken) : null,
+    refresh_expires_at: refreshToken ? Date.now() + sessionLifetime : null,
+    expires_at: new Date(Date.now() + persistedLifetime)
+  });
   await sessions.deleteOne({ _id: digest(req.sid) });
-  res.cookie('hk_session', sign(sid), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: lifetime });
+  req.login.customer = customer;
+  if (isOwner(customer)) await auditOwner('owner_identity_authenticated', req, { provider: claims.identities ? 'federated' : 'cognito' });
+  res.cookie('hk_session', sign(sid), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: persistedLifetime });
   res.redirect(flow.next);
 }));
 app.post('/account/logout', csrf, wrap(async (req, res) => {
+  if (isOwner(res.locals.customer)) await auditOwner('owner_logout', req);
+  if (req.login.refresh_token_encrypted && authReady()) {
+    try {
+      const config = await cognito();
+      await oidc.tokenRevocation(config, decryptedRefresh(req.login.refresh_token_encrypted), { token_type_hint: 'refresh_token' });
+    } catch (error) { console.warn('Refresh token revocation failed', error?.code || error?.message || 'unknown'); }
+  }
   await sessions.deleteOne({ _id: digest(req.sid) });
   res.clearCookie('hk_session');
   if (authReady()) {
@@ -433,19 +501,67 @@ app.get('/account/orders/:id', customerOnly, wrap(async (req, res) => {
   if (req.cookies.hk_checkout_success) res.clearCookie('hk_checkout_success');
   render(res, 'customer_order.html', { order, clear_cart });
 }));
+const safeOwnerNext = value => typeof value === 'string' && /^\/owner(?:[/?#]|$)/.test(value) && !value.includes(String.fromCharCode(92)) ? value : '/owner';
+app.get('/owner/mfa', ownerIdentityOnly, wrap(async (req, res) => {
+  if (req.login.owner_mfa_verified_at && Date.now() - req.login.owner_mfa_verified_at <= ownerMfaLifetime)
+    return res.redirect(safeOwnerNext(req.query.next));
+  const ownerKey = res.locals.customer.email.trim().toLowerCase();
+  const record = await ownerMfa.findOne({ _id: ownerKey });
+  let secret;
+  if (record?.secret_encrypted) secret = decryptedMfa(record.secret_encrypted);
+  else if (req.login.owner_mfa_pending?.expires_at > Date.now()) secret = decryptedMfa(req.login.owner_mfa_pending.secret_encrypted);
+  else {
+    secret = generateTotpSecret();
+    await sessions.updateOne({ _id: digest(req.sid) }, { $set: { owner_mfa_pending: { secret_encrypted: encryptedMfa(secret), expires_at: Date.now() + 10 * 60000 } } });
+  }
+  const enrolling = !record?.secret_encrypted;
+  const qr = enrolling ? await QRCode.toDataURL(totpUri(secret, res.locals.customer.email), { errorCorrectionLevel: 'M', margin: 1, width: 260 }) : null;
+  render(res, 'owner_mfa.html', { enrolling, qr, manual_secret: enrolling ? secret.match(/.{1,4}/g).join(' ') : null, next: safeOwnerNext(req.query.next) });
+}));
+app.post('/owner/mfa', ownerIdentityOnly, csrf, wrap(async (req, res) => {
+  const next = safeOwnerNext(req.body.next);
+  if (req.login.owner_mfa_blocked_until > Date.now())
+    return res.status(429).send(env.render('owner_mfa.html', { enrolling: false, next, error: 'Too many incorrect codes. Please wait ten minutes and try again.', csrf: res.locals.csrf, customer: res.locals.customer }));
+  const ownerKey = res.locals.customer.email.trim().toLowerCase();
+  const record = await ownerMfa.findOne({ _id: ownerKey });
+  const pending = req.login.owner_mfa_pending;
+  const encrypted = record?.secret_encrypted || (pending?.expires_at > Date.now() ? pending.secret_encrypted : null);
+  if (!encrypted) return res.redirect('/owner/mfa?next=' + encodeURIComponent(next));
+  const valid = verifyTotp(decryptedMfa(encrypted), req.body.code);
+  if (!valid) {
+    const result = await sessions.findOneAndUpdate({ _id: digest(req.sid) }, { $inc: { owner_mfa_attempts: 1 } }, { returnDocument: 'after' });
+    if ((result?.owner_mfa_attempts || 0) >= 5)
+      await sessions.updateOne({ _id: digest(req.sid) }, { $set: { owner_mfa_attempts: 0, owner_mfa_blocked_until: Date.now() + 10 * 60000 } });
+    await auditOwner('owner_mfa_failed', req);
+    const enrolling = !record?.secret_encrypted;
+    const secret = decryptedMfa(encrypted);
+    const qr = enrolling ? await QRCode.toDataURL(totpUri(secret, res.locals.customer.email), { errorCorrectionLevel: 'M', margin: 1, width: 260 }) : null;
+    return res.status(400).send(env.render('owner_mfa.html', { enrolling, qr, manual_secret: enrolling ? secret.match(/.{1,4}/g).join(' ') : null, next, error: 'That code is not valid. Enter the current six-digit code from your authenticator app.', csrf: res.locals.csrf, customer: res.locals.customer }));
+  }
+  if (!record?.secret_encrypted) {
+    await ownerMfa.updateOne({ _id: ownerKey }, { $set: { email: ownerKey, secret_encrypted: encrypted, enrolled_at: now() } }, { upsert: true });
+    await auditOwner('owner_mfa_enrolled', req);
+  }
+  const verifiedAt = Date.now();
+  await sessions.updateOne({ _id: digest(req.sid) }, { $set: { owner_mfa_verified_at: verifiedAt, owner_mfa_attempts: 0 }, $unset: { owner_mfa_pending: '', owner_mfa_blocked_until: '' } });
+  req.login.owner_mfa_verified_at = verifiedAt;
+  await auditOwner('owner_mfa_verified', req);
+  res.redirect(next);
+}));
 app.get('/owner', ownerOnly, wrap(async (req, res) => {
   const before = Number(req.query.before);
   const selectedStatus = isOrderStatus(req.query.status) ? req.query.status : '';
   const filter = selectedStatus ? { status: selectedStatus } : {};
   if (Number.isSafeInteger(before) && before > 0) filter.id = { $lt: before };
-  const [history, totalOrders, openOrders, deliveredOrders, orderValue, analyticsRows, recentProducts] = await Promise.all([
+  const [history, totalOrders, openOrders, deliveredOrders, orderValue, analyticsRows, recentProducts, securityEvents] = await Promise.all([
     orders.find(filter).project({ id: 1, created_at: 1, status: 1, customer_name: 1, email: 1, total_paise: 1, subtotal_paise: 1 }).sort({ id: -1 }).limit(51).toArray(),
     orders.countDocuments(),
     orders.countDocuments({ status: { $nin: ['delivered', 'cancelled'] } }),
     orders.countDocuments({ status: 'delivered' }),
     orders.aggregate([{ $match: { status: { $ne: 'cancelled' } } }, { $group: { _id: null, value: { $sum: { $ifNull: ['$total_paise', '$subtotal_paise'] } } } }]).next(),
     orders.find({ created_at: { $gte: new Date(Date.now() - 370 * 86400000).toISOString() } }).project({ created_at: 1, status: 1, total_paise: 1, subtotal_paise: 1 }).toArray(),
-    products.find({ active: 1 }).project({ id: 1, name: 1, image: 1, price_paise: 1, compare_at_paise: 1, category: 1 }).sort({ id: -1 }).limit(20).toArray()
+    products.find({ active: 1 }).project({ id: 1, name: 1, image: 1, price_paise: 1, compare_at_paise: 1, category: 1 }).sort({ id: -1 }).limit(20).toArray(),
+    ownerAudit.find({}).project({ event: 1, owner_email: 1, details: 1, created_at: 1 }).sort({ _id: -1 }).limit(50).toArray()
   ]);
   const page = history.slice(0, 50);
   render(res, 'owner.html', {
@@ -453,7 +569,7 @@ app.get('/owner', ownerOnly, wrap(async (req, res) => {
     next_cursor: history.length > 50 ? page.at(-1).id : null,
     overview: { total_orders: totalOrders, open_orders: openOrders, delivered_orders: deliveredOrders, order_value_paise: orderValue?.value || 0 },
     analytics: orderAnalytics(analyticsRows), categories: tagNames, recent_products: recentProducts,
-    listed_product_id: Number(req.query.listed) || null
+    listed_product_id: Number(req.query.listed) || null, security_events: securityEvents
   });
 }));
 app.post('/owner/products', ownerOnly, express.json({ limit: '28mb' }), csrf, wrap(async (req, res) => {
@@ -478,6 +594,7 @@ app.post('/owner/products', ownerOnly, express.json({ limit: '28mb' }), csrf, wr
       personalisation: null, badge: 'New', made_to_order: true, stock: 9999, active: 1, version: 1,
       units: 0, sales_revenue: 0, created_at: now(), created_by: res.locals.customer.email
     });
+    await auditOwner('product_listed', req, { product_id: id, product_name: draft.name });
     res.json({ ok: true, redirect: `/owner?listed=${id}#products` });
   } catch (error) {
     await Promise.allSettled(imageIds.map(id => productImages.delete(id)));
@@ -499,6 +616,7 @@ app.post('/owner/orders/:id/status', ownerOnly, csrf, wrap(async (req, res) => {
     $push: { status_history: { status: req.body.status, changed_at: changedAt, changed_by: res.locals.customer.email } }
   });
   if (!result.matchedCount) return res.sendStatus(404);
+  await auditOwner('order_status_changed', req, { order_id: id, status: req.body.status });
   res.redirect(`/owner/orders/${id}?updated=1`);
 }));
 app.use((error, req, res, next) => {
@@ -516,7 +634,9 @@ export async function init() {
     orders.createIndex({ id: -1 }), orders.createIndex({ customer_sub: 1, id: -1 }), categories.createIndex({ email: 1 }, { unique: true }),
     sessions.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
     testPayments.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
-    loginLimits.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 })]);
+    loginLimits.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
+    ownerMfa.createIndex({ email: 1 }, { unique: true }),
+    ownerAudit.createIndex({ created_at: -1 }), ownerAudit.createIndex({ owner_email: 1, created_at: -1 })]);
   await publishInitialCatalog();
   return app;
 }

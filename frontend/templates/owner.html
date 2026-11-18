@@ -4,7 +4,7 @@
 <div class="owner-shell">
   <aside class="owner-sidebar">
     <a class="owner-brand" href="/owner">Happy Knots <span>Owner</span></a>
-    <nav aria-label="Owner navigation"><a class="active" href="/owner">Overview</a><a href="#orders">Orders</a><a href="#products">Products</a><a href="/shop">View shop</a><a href="/account">My account</a></nav>
+    <nav aria-label="Owner navigation"><a class="active" href="/owner">Overview</a><a href="#orders">Orders</a><a href="#products">Products</a><a href="#security">Security</a><a href="/shop">View shop</a><a href="/account">My account</a></nav>
     <div class="owner-identity"><small>Signed in as</small><strong>{{ customer.email }}</strong><form action="/account/logout" method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Sign out</button></form></div>
   </aside>
   <main class="owner-main">
@@ -42,6 +42,10 @@
         <div class="owner-product-actions"><button class="button" id="ownerProductSubmit">List product</button><p id="ownerProductMessage" role="status"></p></div>
       </form>
       <div class="owner-listed-products"><h3>Recently listed</h3><div class="owner-product-list">{% for product in recent_products %}<a href="/products/{{ product.id }}"><img src="{{ product.image }}" alt=""><span><strong>{{ product.name }}</strong><small>{{ product.category }} · ₹{{ product.price_paise|money }}</small></span><span>View →</span></a>{% endfor %}</div></div>
+    </section>
+    <section class="owner-panel" id="security">
+      <div class="owner-toolbar"><div><span class="eyebrow">Account protection</span><h2>Security activity</h2><p>Recent owner sign-ins, verification attempts, and management changes.</p></div></div>
+      {% if security_events %}<div class="owner-table-wrap"><table><thead><tr><th>Activity</th><th>Owner</th><th>Details</th><th>Time</th></tr></thead><tbody>{% for event in security_events %}<tr><td><strong>{{ event.event|replace('_', ' ')|title }}</strong></td><td>{{ event.owner_email or 'Unknown account' }}</td><td>{% if event.details.order_id %}Order #{{ event.details.order_id }}{% if event.details.status %} changed to {{ event.details.status|title }}{% endif %}{% elif event.details.product_id %}Product #{{ event.details.product_id }}{% if event.details.product_name %}: {{ event.details.product_name }}{% endif %}{% elif event.details.path %}{{ event.details.path }}{% else %}—{% endif %}</td><td><small>{{ event.created_at|truncate(19, true, '')|replace('T', ' ') }}</small></td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="owner-empty"><h3>No security activity yet</h3><p>Owner actions will appear here.</p></div>{% endif %}
     </section>
   </main>
 </div>

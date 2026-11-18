@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Owner verification | Happy Knots{% endblock %}
+{% block body %}
+<main class="owner-mfa-page">
+  <section class="owner-mfa-card">
+    <span class="eyebrow">Private owner access</span>
+    <h1>{{ 'Secure your owner account' if enrolling else 'Authenticator verification' }}</h1>
+    {% if enrolling %}
+      <p>Scan this QR code with Google Authenticator, Microsoft Authenticator, 1Password, or another TOTP app. Then enter the current six-digit code.</p>
+      <div class="owner-mfa-qr"><img src="{{ qr }}" alt="QR code for Happy Knots owner authentication"></div>
+      <details><summary>Cannot scan the QR code?</summary><p>Enter this setup key manually:</p><code>{{ manual_secret }}</code></details>
+    {% else %}
+      <p>Enter the current six-digit code from your authenticator app to open the owner portal.</p>
+    {% endif %}
+    {% if error %}<p class="login-error" role="alert">{{ error }}</p>{% endif %}
+    <form method="post" action="/owner/mfa">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="next" value="{{ next }}">
+      <label for="mfaCode">Six-digit code<input id="mfaCode" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required autofocus placeholder="000000"></label>
+      <button class="button">{{ 'Finish secure setup' if enrolling else 'Verify and continue' }}</button>
+    </form>
+    <form action="/account/logout" method="post" class="owner-mfa-signout"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Use a different account</button></form>
+  </section>
+</main>
+{% endblock %}
