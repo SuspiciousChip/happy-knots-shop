@@ -1,18 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { checkoutSelection, discountPercent, pricedLines } from '../backend/catalog-options.js';
+import { checkoutSelection, discountPercent, pricedLines, withOrderItemImages } from '../backend/catalog-options.js';
 
 const product = { id: 7, active: 1, stock: 3, name: 'Lotus set', price_paise: 49900, variants: [
-  { code: 'set-2', label: 'Set of 2', price_paise: 49900 },
-  { code: 'set-3', label: 'Set of 3', price_paise: 69900 }
+  { code: 'set-2', label: 'Set of 2', image: '/images/lotus-2.webp', price_paise: 49900 },
+  { code: 'set-3', label: 'Set of 3', image: '/images/lotus-3.webp', price_paise: 69900 }
 ] };
 
 test('variant pricing and quantity are taken from the catalog', () => {
   const selection = checkoutSelection([{ id: 7, variant: 'set-2', personalisation: '', quantity: 1 }, { id: 7, variant: 'set-3', personalisation: '', quantity: 2 }]);
   assert.equal(selection.totals.get(7), 3);
   assert.deepEqual(pricedLines([product], selection).map(line => [line.variant_label, line.unit_price_paise, line.quantity]), [['Set of 2', 49900, 1], ['Set of 3', 69900, 2]]);
+  assert.deepEqual(pricedLines([product], selection).map(line => line.image), ['/images/lotus-2.webp', '/images/lotus-3.webp']);
   assert.equal(pricedLines([product], checkoutSelection([{ id: 7, variant: 'fake', personalisation: '', quantity: 1 }])), null);
   assert.equal(pricedLines([product], checkoutSelection([{ id: 7, variant: 'set-2', personalisation: '', quantity: 4 }])), null);
+});
+
+test('existing order lines are backfilled with the exact selected variant image', () => {
+  const items = [{ product_id: 7, product_name: 'Lotus set', variant: 'set-3', variant_label: 'Set of 3' }];
+  assert.equal(withOrderItemImages(items, [product])[0].image, '/images/lotus-3.webp');
+  assert.equal(withOrderItemImages([{ ...items[0], image: '/snapshots/original.webp' }], [product])[0].image, '/snapshots/original.webp');
 });
 
 test('personalized name is required and saved with the order line', () => {

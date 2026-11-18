@@ -114,14 +114,21 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.doesNotMatch(env.render('account.html', base), /Open owner portal/);
   assert.match(env.render('account.html', { ...base, is_owner: true }), /href="\/owner">Open owner portal/);
   assert.doesNotMatch(env.render('account.html', base).split('</title>')[0], /<script>/);
-  const order = { id: 11, subtotal_paise: 2400, shipping_paise: 8000, total_paise: 10400, items: [{ product_name: 'Flower', quantity: 2, unit_price_paise: 1200 }] };
+  const order = { id: 11, status: 'delivered', created_at: '2026-11-18T10:00:00.000Z', subtotal_paise: 2400, shipping_paise: 8000, total_paise: 10400, status_history: [{ status: 'new', changed_at: '2026-11-18T10:00:00.000Z' }, { status: 'delivered', changed_at: '2026-11-19T10:00:00.000Z' }], items: [{ product_name: 'Blue Crochet Bag', variant_label: 'Blue', image: '/media/products/blue-bag', quantity: 2, unit_price_paise: 1200 }] };
+  const accountWithHistory = env.render('account.html', { ...base, orders: [order] });
+  assert.match(accountWithHistory, /Order history/);
+  assert.match(accountWithHistory, /Every order stays here after it is delivered/);
+  assert.match(accountWithHistory, /class="badge">Delivered/);
+  assert.match(accountWithHistory, /src="\/media\/products\/blue-bag"/);
   const orderPage = env.render('customer_order.html', { ...base, order, clear_cart: true });
+  assert.match(orderPage, /src="\/media\/products\/blue-bag"/);
+  assert.match(orderPage, /Status history/);
   assert.match(orderPage, /₹24\.00/);
   assert.match(orderPage, /₹80\.00/);
   assert.match(orderPage, /₹104\.00/);
   assert.match(orderPage, /localStorage\.removeItem\('happy-knots-cart'\)/);
   assert.doesNotMatch(env.render('customer_order.html', { ...base, order, clear_cart: false }), /localStorage\.removeItem/);
-  const ownerOrder = { ...order, status: 'new', customer_name: 'Test Customer', email: 'buyer@example.com', phone: '9876543210', address: 'Test address', created_at: '2026-11-18T10:00:00.000Z' };
+  const ownerOrder = { ...order, status: 'new', customer_name: 'Test Customer', email: 'buyer@example.com', phone: '9876543210', address: 'Test address' };
   const analytics = { day: [], week: [], month: [], year: [] };
   const ownerPage = env.render('owner.html', { ...base, customer: { email: 'aryandixit2905@gmail.com' }, orders: [ownerOrder], statuses: ['new', 'delivered'], selected_status: '', overview: { total_orders: 1, open_orders: 1, delivered_orders: 0, order_value_paise: 10400 }, analytics, categories: ['Home Decor'], recent_products: [] });
   assert.match(ownerPage, /Private workspace/);
@@ -133,6 +140,9 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.match(ownerPage, /name="colors"/);
   const ownerOrderPage = env.render('owner_order.html', { ...base, customer: { email: 'aryandixit2905@gmail.com' }, order: ownerOrder, statuses: ['new', 'delivered'], updated: false });
   assert.match(ownerOrderPage, /action="\/owner\/orders\/11\/status"/);
+  assert.match(ownerOrderPage, /src="\/media\/products\/blue-bag"/);
+  assert.match(ownerOrderPage, /Blue Crochet Bag/);
+  assert.match(ownerOrderPage, />Blue</);
   assert.match(ownerOrderPage, /Personalisation|Test Customer/);
 });
 

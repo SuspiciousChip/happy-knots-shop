@@ -15,7 +15,7 @@ import { INDIAN_STATES_AND_UTS, parseAddress, isCompleteAddress, formatAddress }
 import { verifyRecaptcha } from './recaptcha.js';
 import { shippingPaise, FREE_SHIPPING_THRESHOLD_PAISE, STANDARD_SHIPPING_PAISE } from './shipping.js';
 import { searchProducts } from './search.js';
-import { checkoutSelection, discountPercent, pricedLines } from './catalog-options.js';
+import { checkoutSelection, discountPercent, pricedLines, withOrderItemImages } from './catalog-options.js';
 import { createTestOrder, fetchTestPayment, isCapturedPayment, testCredentials, verifyPaymentSignature } from './razorpay.js';
 import { appBaseUrl } from './base-url.js';
 import { isOrderStatus, isOwner, ORDER_STATUSES } from './owner-access.js';
@@ -371,10 +371,11 @@ app.post('/orders', customerOnly, csrf, wrap(async (req, res) => {
       const subtotal = items.reduce((n, item) => n + item.unit_price_paise * item.quantity, 0);
       const shipping = shippingPaise(subtotal);
       const total = subtotal + shipping;
+      const createdAt = now();
       await orders.insertOne({ id: orderId, customer_sub: res.locals.customer.sub, customer_name: customer.name, email: customer.email, phone: customer.phone,
         address: customer.address, address_line1: customer.address_line1, address_line2: customer.address_line2,
         landmark: customer.landmark, city: customer.city, state: customer.state, pincode: customer.pincode,
-        subtotal_paise: subtotal, shipping_paise: shipping, total_paise: total, status: 'new', payment_method: 'cash_on_delivery', created_at: now(), items }, { session: transaction });
+        subtotal_paise: subtotal, shipping_paise: shipping, total_paise: total, status: 'new', status_history: [{ status: 'new', changed_at: createdAt, changed_by: 'customer' }], payment_method: 'cash_on_delivery', created_at: createdAt, items }, { session: transaction });
       for (const p of selected) {
         const qty = selection.totals.get(p.id);
         const revenue = items.filter(item => item.product_id === p.id).reduce((sum, item) => sum + item.unit_price_paise * item.quantity, 0);
@@ -509,7 +510,7 @@ app.get('/account', customerOnly, wrap(async (req, res) => {
   if (Number.isSafeInteger(before) && before > 0) orderFilter.id = { $lt: before };
   const [profile, history] = await Promise.all([
     customers.findOne({ _id: res.locals.customer.sub }, { projection: { addresses: 1 } }),
-    orders.find(orderFilter).project({ id: 1, created_at: 1, status: 1, subtotal_paise: 1, total_paise: 1 }).sort({ id: -1 }).limit(31).toArray()
+    orders.find(orderFilter).project({ id: 1, created_at: 1, status: 1, subtotal_paise: 1, total_paise: 1, items: 1 }).sort({ id: -1 }).limit(31).toArray()
   ]);
   const page = history.slice(0, 30);
   render(res, 'account.html', { profile: profile || { addresses: [] }, orders: page, next_cursor: history.length > 30 ? page.at(-1).id : null, states: INDIAN_STATES_AND_UTS });
@@ -724,6 +725,17 @@ export async function init() {
     ownerMfa.createIndex({ email: 1 }, { unique: true }),
     ownerAudit.createIndex({ created_at: -1 }), ownerAudit.createIndex({ owner_email: 1, created_at: -1 })]);
   await publishInitialCatalog();
+  const missingImageOrders = await orders.find({ items: { $elemMatch: { image: { $exists: false } } } }).project({ id: 1, items: 1 }).toArray();
+  if (missingImageOrders.length) {
+    const productIds = [...new Set(missingImageOrders.flatMap(order => order.items.map(item => item.product_id).filter(Number.isSafeInteger)))];
+    const selected = productIds.length ? await products.find({ id: { $in: productIds } }).project({ id: 1, image: 1, variants: 1 }).toArray() : [];
+    await Promise.all(missingImageOrders.map(order => {
+      const items = withOrderItemImages(order.items, selected);
+      return items.some((item, index) => item.image !== order.items[index].image)
+        ? orders.updateOne({ id: order.id, items: { $elemMatch: { image: { $exists: false } } } }, { $set: { items } })
+        : Promise.resolve();
+    }));
+  }
   return app;
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

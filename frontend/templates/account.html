@@ -13,11 +13,13 @@
   <div class="account-intro"><h1>My account</h1><p>{{ customer.email }}</p>{% if is_owner %}<a class="button owner-portal-shortcut" href="/owner">Open owner portal →</a>{% endif %}</div>
   <nav class="account-nav" aria-label="Account sections"><a href="#orders">My orders</a><a href="#addresses">Saved addresses</a></nav>
   <section id="orders" class="account-section" aria-labelledby="orders-title">
-    <h2 id="orders-title">My orders</h2>
+    <h2 id="orders-title">Order history</h2>
+    <p class="account-muted">Every order stays here after it is delivered. Use “Older orders” to browse earlier purchases.</p>
     {% if orders %}
     <div class="account-orders">
       {% for order in orders %}
       <a class="account-order-row" href="/account/orders/{{ order.id }}">
+        {% if order['items'] and order['items'][0].image %}<img class="account-order-thumb" src="{{ order['items'][0].image }}" alt="">{% else %}<span class="account-order-thumb account-order-placeholder" aria-hidden="true">HK</span>{% endif %}
         <span><strong>Order #{{ order.id }}</strong><small>{{ order.created_at | truncate(10, true, '') }}</small></span>
         <span class="badge">{{ order.status|title }}</span>
         <strong>₹{{ (order.total_paise or order.subtotal_paise) | money }}</strong>

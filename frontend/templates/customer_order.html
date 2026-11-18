@@ -5,12 +5,13 @@
 <main class="account-page">
   <div class="account-intro"><h1>Order #{{ order.id }}</h1><p>{{ order.created_at | truncate(10, true, '') }} <span class="badge">{{ order.status|title }}</span></p></div>
   <section class="account-section"><h2>Your items</h2>
-    {% for item in order['items'] %}<div class="customer-line"><div><h3>{{ item.product_name }}</h3>{% if item.variant_label %}<p>{{ item.variant_label }}</p>{% endif %}{% if item.personalisation %}<p>Name: {{ item.personalisation }}</p>{% endif %}<p>Quantity {{ item.quantity }}</p></div><strong>₹{{ (item.unit_price_paise * item.quantity) | money }}</strong></div>{% endfor %}
+    {% for item in order['items'] %}<div class="customer-line">{% if item.image %}<img class="order-item-image" src="{{ item.image }}" alt="{{ item.product_name }}{% if item.variant_label %} in {{ item.variant_label }}{% endif %}">{% endif %}<div><h3>{{ item.product_name }}</h3>{% if item.variant_label %}<p>{{ item.variant_label }}</p>{% endif %}{% if item.personalisation %}<p>Name: {{ item.personalisation }}</p>{% endif %}<p>Quantity {{ item.quantity }}</p></div><strong>₹{{ (item.unit_price_paise * item.quantity) | money }}</strong></div>{% endfor %}
     <p class="customer-total"><span>Items</span><strong>₹{{ order.subtotal_paise | money }}</strong></p>
     <p class="customer-total"><span>Shipping</span><strong>{{ 'Free' if not order.shipping_paise else '₹' + (order.shipping_paise | money) }}</strong></p>
     <p class="customer-total"><span>Total due on delivery</span><strong>₹{{ (order.total_paise or order.subtotal_paise) | money }}</strong></p>
     <p>Payment: cash on delivery.</p>
   </section>
+  {% if order.status_history %}<section class="account-section"><h2>Status history</h2><ol class="status-history">{% for event in order.status_history %}<li><span class="badge">{{ event.status|title }}</span><time>{{ event.changed_at|truncate(16, true, '')|replace('T', ' ') }}</time></li>{% endfor %}</ol></section>{% endif %}
   <section class="account-section"><h2>Delivery details</h2><p>{{ order.customer_name }}<br>{{ order.phone }}</p><p class="address-lines">{{ order.address }}</p><p>{{ order.email }}</p></section>
 </main>
 {% if clear_cart %}<script>localStorage.removeItem('happy-knots-cart');</script>{% endif %}

@@ -27,9 +27,20 @@ export function pricedLines(selected, selection) {
     if (requiresName ? !line.personalisation : !!line.personalisation) return null;
     const price = variant?.price_paise ?? product.price_paise;
     if (!Number.isSafeInteger(price) || price < 100) return null;
-    result.push({ product_id: product.id, product_name: product.name, variant: line.variant, variant_label: variant?.label || '', personalisation: line.personalisation, unit_price_paise: price, quantity: line.quantity });
+    result.push({ product_id: product.id, product_name: product.name, variant: line.variant, variant_label: variant?.label || '', image: variant?.image || product.image || '', personalisation: line.personalisation, unit_price_paise: price, quantity: line.quantity });
   }
   return result;
+}
+
+export function withOrderItemImages(items, selected) {
+  const products = new Map(selected.map(product => [product.id, product]));
+  return items.map(item => {
+    if (item.image) return item;
+    const product = products.get(item.product_id);
+    const variant = Array.isArray(product?.variants) ? product.variants.find(option => option.code === item.variant) : null;
+    const image = variant?.image || product?.image || '';
+    return image ? { ...item, image } : item;
+  });
 }
 
 export function discountPercent(pricePaise, compareAtPaise) {
