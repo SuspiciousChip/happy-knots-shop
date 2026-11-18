@@ -19,3 +19,8 @@ test('search requires all query words and does not change the full catalog', () 
   assert.deepEqual(searchProducts(items, '').map(x => x.name), items.map(x => x.name));
   assert.deepEqual(searchProducts(items, 'not-for-sale'), []);
 });
+
+test('owner supplied product keywords are searchable', () => {
+  const products = [{ name: 'Crochet Decor', description: 'Handmade item', tags: ['Home Decor'], keywords: ['housewarming', 'gift'] }];
+  assert.equal(searchProducts(products, 'housewarming').length, 1);
+});

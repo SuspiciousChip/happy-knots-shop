@@ -107,10 +107,14 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.match(orderPage, /localStorage\.removeItem\('happy-knots-cart'\)/);
   assert.doesNotMatch(env.render('customer_order.html', { ...base, order, clear_cart: false }), /localStorage\.removeItem/);
   const ownerOrder = { ...order, status: 'new', customer_name: 'Test Customer', email: 'buyer@example.com', phone: '9876543210', address: 'Test address', created_at: '2026-11-18T10:00:00.000Z' };
-  const ownerPage = env.render('owner.html', { ...base, customer: { email: 'aryandixit2905@gmail.com' }, orders: [ownerOrder], statuses: ['new', 'delivered'], selected_status: '', overview: { total_orders: 1, open_orders: 1, delivered_orders: 0, order_value_paise: 10400 } });
+  const analytics = { day: [], week: [], month: [], year: [] };
+  const ownerPage = env.render('owner.html', { ...base, customer: { email: 'aryandixit2905@gmail.com' }, orders: [ownerOrder], statuses: ['new', 'delivered'], selected_status: '', overview: { total_orders: 1, open_orders: 1, delivered_orders: 0, order_value_paise: 10400 }, analytics, categories: ['Home Decor'], recent_products: [] });
   assert.match(ownerPage, /Private workspace/);
   assert.match(ownerPage, /buyer@example\.com/);
   assert.doesNotMatch(ownerPage, /rakhidixit987@gmail\.com/);
+  assert.match(ownerPage, /id="analyticsChart"/);
+  assert.match(ownerPage, /id="ownerProductForm"/);
+  assert.match(ownerPage, /name="regular_price"/);
   const ownerOrderPage = env.render('owner_order.html', { ...base, customer: { email: 'aryandixit2905@gmail.com' }, order: ownerOrder, statuses: ['new', 'delivered'], updated: false });
   assert.match(ownerOrderPage, /action="\/owner\/orders\/11\/status"/);
   assert.match(ownerOrderPage, /Personalisation|Test Customer/);

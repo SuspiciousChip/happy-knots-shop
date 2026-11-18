@@ -7,7 +7,7 @@ import express from 'express';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import nunjucks from 'nunjucks';
-import { MongoClient } from 'mongodb';
+import { GridFSBucket, MongoClient, ObjectId } from 'mongodb';
 import dotenv from 'dotenv';
 import * as oidc from 'openid-client';
 import { INDIAN_STATES_AND_UTS, parseAddress, isCompleteAddress, formatAddress } from './address.js';
@@ -18,6 +18,8 @@ import { checkoutSelection, discountPercent, pricedLines } from './catalog-optio
 import { createTestOrder, fetchTestPayment, isCapturedPayment, testCredentials, verifyPaymentSignature } from './razorpay.js';
 import { appBaseUrl } from './base-url.js';
 import { isOrderStatus, isOwner, ORDER_STATUSES } from './owner-access.js';
+import { ownerProductDraft } from './owner-product.js';
+import { orderAnalytics } from './analytics.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(root, '..');
@@ -55,6 +57,7 @@ const loginLimits = database.collection('login_rate_limits');
 const customers = database.collection('customers');
 const categories = database.collection('customer_totals');
 const testPayments = database.collection('razorpay_test_payments');
+const productImages = new GridFSBucket(database, { bucketName: 'product_images' });
 const catalogDrafts = JSON.parse(fs.readFileSync(path.join(projectRoot, 'database/product-drafts.json'), 'utf8'));
 const env = nunjucks.configure(path.join(projectRoot, 'frontend', 'templates'), { autoescape: true, noCache: process.env.NODE_ENV !== 'production' });
 const render = (res, name, data = {}) => res.send(env.render(name, { csrf: res.locals.csrf, customer: res.locals.customer, ...data }));
@@ -124,6 +127,14 @@ function catalogProduct(row) {
     made_to_order: true, stock: 9999, active: 1, version: 1, units: 0, sales_revenue: 0
   };
 }
+function storeProductImage(image, filename) {
+  return new Promise((resolve, reject) => {
+    const stream = productImages.openUploadStream(filename, { contentType: image.contentType, metadata: { purpose: 'product' } });
+    stream.once('error', reject);
+    stream.once('finish', () => resolve(stream.id));
+    stream.end(image.buffer);
+  });
+}
 async function publishInitialCatalog() {
   const migration = database.collection('migration');
   const markerId = 'product-catalog-2026-11-18';
@@ -154,10 +165,20 @@ async function publishInitialCatalog() {
     });
   } finally { await transaction.endSession(); }
 }
-async function catalog() { return products.find({ active: 1 }).project({ id: 1, name: 1, tags: 1, category: 1, description: 1, price_paise: 1, compare_at_paise: 1, image: 1, images: 1, variants: 1, personalisation: 1, badge: 1, made_to_order: 1, stock: 1 }).sort({ id: -1 }).toArray(); }
+async function catalog() { return products.find({ active: 1 }).project({ id: 1, name: 1, tags: 1, keywords: 1, category: 1, description: 1, price_paise: 1, compare_at_paise: 1, image: 1, images: 1, variants: 1, personalisation: 1, badge: 1, made_to_order: 1, stock: 1 }).sort({ id: -1 }).toArray(); }
 const tagNames = ['Personal Accessories & Clothing', 'Door Hangings', 'Wall Hangings', 'Home Decor'];
 const tagsFor = p => Array.isArray(p.tags) ? p.tags.filter(t => tagNames.includes(t)) : tagNames.includes(p.category) ? [p.category] : [];
-const publicProduct = p => ({ id: p.id, name: p.name, tags: tagsFor(p), description: p.description, price_paise: p.price_paise, compare_at_paise: p.compare_at_paise > p.price_paise ? p.compare_at_paise : null, discount_percent: discountPercent(p.price_paise, p.compare_at_paise), image: p.image, images: Array.isArray(p.images) ? p.images : [], variants: Array.isArray(p.variants) ? p.variants.map(v => ({ ...v, discount_percent: discountPercent(v.price_paise, v.compare_at_paise) })) : [], personalisation: p.personalisation || null, badge: p.badge || null, made_to_order: !!p.made_to_order, stock: p.stock });
+const publicProduct = p => ({ id: p.id, name: p.name, tags: tagsFor(p), keywords: Array.isArray(p.keywords) ? p.keywords : [], description: p.description, price_paise: p.price_paise, compare_at_paise: p.compare_at_paise > p.price_paise ? p.compare_at_paise : null, discount_percent: discountPercent(p.price_paise, p.compare_at_paise), image: p.image, images: Array.isArray(p.images) ? p.images : [], variants: Array.isArray(p.variants) ? p.variants.map(v => ({ ...v, discount_percent: discountPercent(v.price_paise, v.compare_at_paise) })) : [], personalisation: p.personalisation || null, badge: p.badge || null, made_to_order: !!p.made_to_order, stock: p.stock });
+app.get('/media/products/:id', wrap(async (req, res) => {
+  if (!ObjectId.isValid(req.params.id)) return res.sendStatus(404);
+  const id = new ObjectId(req.params.id);
+  const file = await database.collection('product_images.files').findOne({ _id: id, 'metadata.purpose': 'product' });
+  if (!file) return res.sendStatus(404);
+  res.set({ 'Content-Type': file.contentType || 'application/octet-stream', 'Content-Length': String(file.length), 'Cache-Control': 'public, max-age=31536000, immutable' });
+  const stream = productImages.openDownloadStream(id);
+  stream.on('error', () => { if (!res.headersSent) res.sendStatus(404); else res.destroy(); });
+  stream.pipe(res);
+}));
 app.get('/', wrap(async (req, res) => {
   const listing = (await catalog()).map(publicProduct);
   render(res, 'shop.html', { products: listing.slice(0, 6), product_json: listing });
@@ -416,19 +437,44 @@ app.get('/owner', ownerOnly, wrap(async (req, res) => {
   const selectedStatus = isOrderStatus(req.query.status) ? req.query.status : '';
   const filter = selectedStatus ? { status: selectedStatus } : {};
   if (Number.isSafeInteger(before) && before > 0) filter.id = { $lt: before };
-  const [history, totalOrders, openOrders, deliveredOrders, orderValue] = await Promise.all([
+  const [history, totalOrders, openOrders, deliveredOrders, orderValue, analyticsRows, recentProducts] = await Promise.all([
     orders.find(filter).project({ id: 1, created_at: 1, status: 1, customer_name: 1, email: 1, total_paise: 1, subtotal_paise: 1 }).sort({ id: -1 }).limit(51).toArray(),
     orders.countDocuments(),
     orders.countDocuments({ status: { $nin: ['delivered', 'cancelled'] } }),
     orders.countDocuments({ status: 'delivered' }),
-    orders.aggregate([{ $match: { status: { $ne: 'cancelled' } } }, { $group: { _id: null, value: { $sum: { $ifNull: ['$total_paise', '$subtotal_paise'] } } } }]).next()
+    orders.aggregate([{ $match: { status: { $ne: 'cancelled' } } }, { $group: { _id: null, value: { $sum: { $ifNull: ['$total_paise', '$subtotal_paise'] } } } }]).next(),
+    orders.find({ created_at: { $gte: new Date(Date.now() - 370 * 86400000).toISOString() } }).project({ created_at: 1, status: 1, total_paise: 1, subtotal_paise: 1 }).toArray(),
+    products.find({ active: 1 }).project({ id: 1, name: 1, image: 1, price_paise: 1, compare_at_paise: 1, category: 1 }).sort({ id: -1 }).limit(20).toArray()
   ]);
   const page = history.slice(0, 50);
   render(res, 'owner.html', {
     orders: page, statuses: ORDER_STATUSES, selected_status: selectedStatus,
     next_cursor: history.length > 50 ? page.at(-1).id : null,
-    overview: { total_orders: totalOrders, open_orders: openOrders, delivered_orders: deliveredOrders, order_value_paise: orderValue?.value || 0 }
+    overview: { total_orders: totalOrders, open_orders: openOrders, delivered_orders: deliveredOrders, order_value_paise: orderValue?.value || 0 },
+    analytics: orderAnalytics(analyticsRows), categories: tagNames, recent_products: recentProducts,
+    listed_product_id: Number(req.query.listed) || null
   });
+}));
+app.post('/owner/products', ownerOnly, express.json({ limit: '28mb' }), csrf, wrap(async (req, res) => {
+  const draft = ownerProductDraft(req.body, tagNames);
+  if (!draft) return errorPage(res, 'Check the product details', 'Add 1–4 valid JPG, PNG or WebP images under 5 MB each. The regular price must be higher than the selling price.', 400);
+  const imageIds = [];
+  try {
+    for (const [index, image] of draft.images.entries()) imageIds.push(await storeProductImage(image, `product-${Date.now()}-${index}`));
+    const imageUrls = imageIds.map(id => `/media/products/${id}`);
+    const id = await nextId('products');
+    await products.insertOne({
+      id, sku: `owner-${id}`, name: draft.name, category: draft.category, tags: [draft.category], keywords: draft.keywords,
+      description: draft.description, image: imageUrls[0], images: imageUrls, variants: [],
+      price_paise: draft.price_paise, compare_at_paise: draft.compare_at_paise,
+      personalisation: null, badge: 'New', made_to_order: true, stock: 9999, active: 1, version: 1,
+      units: 0, sales_revenue: 0, created_at: now(), created_by: res.locals.customer.email
+    });
+    res.json({ ok: true, redirect: `/owner?listed=${id}#products` });
+  } catch (error) {
+    await Promise.allSettled(imageIds.map(id => productImages.delete(id)));
+    throw error;
+  }
 }));
 app.get('/owner/orders/:id', ownerOnly, wrap(async (req, res) => {
   const id = Number(req.params.id);

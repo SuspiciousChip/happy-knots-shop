@@ -4,7 +4,7 @@
 <div class="owner-shell">
   <aside class="owner-sidebar">
     <a class="owner-brand" href="/owner">Happy Knots <span>Owner</span></a>
-    <nav aria-label="Owner navigation"><a class="active" href="/owner">Orders</a><a href="/shop">View shop</a><a href="/account">My account</a></nav>
+    <nav aria-label="Owner navigation"><a class="active" href="/owner">Overview</a><a href="#orders">Orders</a><a href="#products">Products</a><a href="/shop">View shop</a><a href="/account">My account</a></nav>
     <div class="owner-identity"><small>Signed in as</small><strong>{{ customer.email }}</strong><form action="/account/logout" method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Sign out</button></form></div>
   </aside>
   <main class="owner-main">
@@ -15,11 +15,35 @@
       <article><span>Delivered</span><strong>{{ overview.delivered_orders }}</strong></article>
       <article><span>Active order value</span><strong>₹{{ overview.order_value_paise|money }}</strong></article>
     </section>
-    <section class="owner-panel">
+    <section class="owner-panel owner-analytics" aria-labelledby="analyticsTitle">
+      <div class="owner-toolbar"><div><span class="eyebrow">Performance</span><h2 id="analyticsTitle">Shop analytics</h2><p id="analyticsSummary">Revenue and orders for the last 7 days.</p></div><div class="analytics-ranges" role="group" aria-label="Analytics period"><button type="button" data-range="day">Day</button><button class="active" type="button" data-range="week">Week</button><button type="button" data-range="month">Month</button><button type="button" data-range="year">Year</button></div></div>
+      <div class="analytics-legend" aria-hidden="true"><span><i class="revenue-key"></i>Revenue</span><span><i class="orders-key"></i>Orders</span></div>
+      <div class="analytics-chart"><canvas id="analyticsChart" role="img" aria-label="Revenue and order count chart"></canvas></div>
+    </section>
+    <section class="owner-panel" id="orders">
       <div class="owner-toolbar"><div><h2>Order queue</h2><p>{{ 'Showing ' + (selected_status|title) + ' orders' if selected_status else 'Newest orders first' }}</p></div><form method="get" action="/owner"><label for="statusFilter">Status</label><select id="statusFilter" name="status" onchange="this.form.submit()"><option value="">All orders</option>{% for status in statuses %}<option value="{{ status }}" {{ 'selected' if selected_status == status else '' }}>{{ status|title }}</option>{% endfor %}</select></form></div>
       {% if orders %}<div class="owner-table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Status</th><th>Total</th><th><span class="sr-only">Action</span></th></tr></thead><tbody>{% for order in orders %}<tr><td><strong>#{{ order.id }}</strong><small>{{ order.created_at|truncate(10, true, '') }}</small></td><td>{{ order.customer_name or 'Customer' }}<small>{{ order.email }}</small></td><td><span class="owner-status status-{{ order.status }}">{{ order.status|title }}</span></td><td><strong>₹{{ (order.total_paise or order.subtotal_paise)|money }}</strong></td><td><a class="owner-view" href="/owner/orders/{{ order.id }}">View order →</a></td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="owner-empty"><h3>No orders here</h3><p>Try another status filter or wait for a new order.</p></div>{% endif %}
       {% if next_cursor %}<a class="button secondary" href="/owner?before={{ next_cursor }}{% if selected_status %}&status={{ selected_status }}{% endif %}">Older orders</a>{% endif %}
     </section>
+    <section class="owner-panel owner-products" id="products">
+      <div class="owner-toolbar"><div><span class="eyebrow">Catalog</span><h2>List a product</h2><p>Publish a new made-to-order item directly to the main shop.</p></div></div>
+      {% if listed_product_id %}<p class="owner-success" role="status">Product listed successfully. <a href="/products/{{ listed_product_id }}">View it in the shop →</a></p>{% endif %}
+      <form class="owner-product-form" id="ownerProductForm" action="/owner/products" method="post">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <label>Product name<input name="name" required minlength="3" maxlength="120" placeholder="For example, Crochet Flower Bouquet"></label>
+        <label>Category<select name="category" required><option value="">Choose a category</option>{% for category in categories %}<option value="{{ category }}">{{ category }}</option>{% endfor %}</select></label>
+        <label>Selling price (₹)<input name="selling_price" type="number" min="1" max="999999" step="0.01" required placeholder="799"></label>
+        <label>Regular price (₹)<input name="regular_price" type="number" min="1" max="999999" step="0.01" required placeholder="1199"><small>Must be a genuine regular price higher than the selling price.</small></label>
+        <label class="owner-product-wide">Search tags <span class="optional">(optional)</span><input name="tags" maxlength="300" placeholder="bouquet, flower, gift"><small>Separate up to 10 tags with commas.</small></label>
+        <label class="owner-product-wide">Description<textarea name="description" required minlength="20" maxlength="2000" placeholder="Describe the materials, colours and what the customer receives."></textarea></label>
+        <label class="owner-product-wide">Product images<input id="ownerProductImages" name="image_files" type="file" accept="image/jpeg,image/png,image/webp" multiple required><small>Upload 1–4 JPG, PNG or WebP images, maximum 5 MB each. The first image becomes the cover.</small></label>
+        <div class="owner-image-previews" id="ownerImagePreviews" aria-live="polite"></div>
+        <div class="owner-product-actions"><button class="button" id="ownerProductSubmit">List product</button><p id="ownerProductMessage" role="status"></p></div>
+      </form>
+      <div class="owner-listed-products"><h3>Recently listed</h3><div class="owner-product-list">{% for product in recent_products %}<a href="/products/{{ product.id }}"><img src="{{ product.image }}" alt=""><span><strong>{{ product.name }}</strong><small>{{ product.category }} · ₹{{ product.price_paise|money }}</small></span><span>View →</span></a>{% endfor %}</div></div>
+    </section>
   </main>
 </div>
+<script>const ownerAnalytics={{ analytics|json_safe }};</script>
+<script src="/static/owner.js?v=analytics-products-1" defer></script>
 {% endblock %}

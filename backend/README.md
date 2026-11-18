@@ -1,6 +1,6 @@
 # Backend
 
-`server.js` is the active Node.js/Express customer app. It serves the storefront, category and product pages, Cognito customer login, saved addresses, customer order history, and checkout. The old owner routes are removed from this server.
+`server.js` is the active Node.js/Express app. It serves the storefront, category and product pages, Cognito customer login, saved addresses, customer order history, checkout, and the email-allowlisted owner portal. Owner routes enforce authorization on the server, support order status management and analytics, and publish validated made-to-order products with images stored in MongoDB GridFS.
 
 Customer sign-in uses the Cognito Lite classic hosted UI and authorization-code flow with PKCE. The server keeps customer identity in an HttpOnly, signed, server-side session. Public browsing does not create a session document; the login flow creates a short-lived OAuth session, then rotates it after sign-in. Login initiation is limited to ten requests per IP per ten-minute window in Atlas. Cognito owns passwords and email verification; Atlas owns address and order data. Login sessions currently expire after at most one hour, requiring a new sign-in. The local callback is `http://localhost:5050/account/callback`. A public HTTPS URL requires updating the Cognito app client's exact callback and `APP_BASE_URL` before launch.
 

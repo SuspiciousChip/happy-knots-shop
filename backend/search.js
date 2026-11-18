@@ -16,7 +16,7 @@ export function searchProducts(items, query) {
   const terms = searchTerms(query);
   if (!terms.length) return items;
   return items.filter(product => {
-    const text = normalize([product.name, product.description, ...(product.tags || [])].join(' '));
+    const text = normalize([product.name, product.description, ...(product.tags || []), ...(product.keywords || [])].join(' '));
     return terms.every(group => group.some(term => text.includes(term)));
   });
 }
