@@ -245,8 +245,13 @@ app.get(['/llms.txt', '/llms-full.txt'], wrap(async (req, res) => {
 }));
 app.get('/.well-known/ai.txt', (_req, res) => res.type('text/plain').set('Cache-Control', 'public, max-age=3600').send(`Site: ${SITE_URL}\nName: ${SITE_NAME}\nSummary: ${SITE_DESCRIPTION}\nSitemap: ${SITE_URL}/sitemap.xml\nLLMs: ${SITE_URL}/llms.txt\nAI training: allowed for public product and information pages; private customer and owner pages are disallowed.\n`));
 app.get('/ai/summary.json', (_req, res) => res.set('Cache-Control', 'public, max-age=3600').json({ name: SITE_NAME, url: SITE_URL, description: SITE_DESCRIPTION, founder: 'Rakhi Dixit', updated: SITE_UPDATED }));
-app.get('/ai/faq.json', (_req, res) => res.set('Cache-Control', 'public, max-age=3600').json({ name: SITE_NAME, questions: FAQS }));
-app.get('/ai/service.json', (_req, res) => res.set('Cache-Control', 'public, max-age=3600').json({ name: SITE_NAME, service: 'Made-to-order handmade crochet products', areaServed: 'India', delivery: '10–15 days', payment: 'Cash on delivery', contact: CONTACT_EMAIL }));
+app.get('/ai/faq.json', (_req, res) => res.set('Cache-Control', 'public, max-age=3600').json({ name: SITE_NAME, faqs: FAQS }));
+app.get('/ai/service.json', (_req, res) => res.set('Cache-Control', 'public, max-age=3600').json({
+  name: SITE_NAME,
+  description: 'Made-to-order handmade crochet products created and delivered across India.',
+  capabilities: ['Handmade crochet gifts', 'Personalised name hangings', 'Crochet bags and accessories', 'Crochet flowers and home decor'],
+  areaServed: 'India', delivery: '10–15 days', payment: 'Cash on delivery', contact: CONTACT_EMAIL
+}));
 app.get('/media/products/:id', wrap(async (req, res) => {
   if (!ObjectId.isValid(req.params.id)) return res.sendStatus(404);
   const id = new ObjectId(req.params.id);

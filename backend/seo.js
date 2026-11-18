@@ -18,7 +18,7 @@ const xml = value => String(value ?? '').replace(/[<>&"']/g, character => ({ '<'
 export function seoFor(pathname, data = {}) {
   const privatePage = /^(?:\/account|\/checkout|\/owner|\/payments|\/orders)(?:\/|$)/.test(pathname);
   const product = data.product;
-  let title = 'Handmade Crochet Gifts & Decor | The Happy Knots';
+  let title = 'The Happy Knots | Handmade Crochet Gifts & Decor';
   let description = SITE_DESCRIPTION;
   let canonicalPath = pathname === '/' ? '/' : pathname.replace(/\/$/, '');
   let type = 'website';

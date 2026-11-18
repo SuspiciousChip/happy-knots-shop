@@ -34,6 +34,7 @@ test('robots policy allows discovery bots while protecting private routes', () =
 });
 
 test('page metadata uses canonical product URLs and noindexes account pages', () => {
+  assert.match(seoFor('/').meta_title, /^The Happy Knots/);
   const productSeo = seoFor(`/products/${product.id}`, { product });
   assert.equal(productSeo.canonical_url, `${SITE_URL}/products/${product.id}`);
   assert.equal(productSeo.og_type, 'product');
