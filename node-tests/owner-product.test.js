@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { decodeProductImage, ownerProductDraft } from '../backend/owner-product.js';
+import { decodeProductImage, ownerProductDraft, ownerProductUpdateDraft } from '../backend/owner-product.js';
 
 const jpeg = `data:image/jpeg;base64,${Buffer.from([0xff, 0xd8, 0xff, 0x00]).toString('base64')}`;
 const categories = ['Home Decor', 'Wall Hangings'];
@@ -19,4 +19,13 @@ test('owner product listing rejects fake images and misleading price order', () 
   assert.equal(decodeProductImage(fake), null);
   assert.equal(ownerProductDraft({ name: 'Crochet Test Flower', description: 'A handmade crochet flower for gifting.', category: 'Home Decor', selling_price: '699', regular_price: '499', images: [jpeg] }, categories), null);
   assert.equal(ownerProductDraft({ name: 'Crochet Test Flower', description: 'A handmade crochet flower for gifting.', category: 'Home Decor', selling_price: '499', regular_price: '699', colors: Array.from({ length: 13 }, (_, index) => `Colour ${index}`).join(','), images: [jpeg] }, categories), null);
+});
+
+test('owner product editing keeps existing images or validates replacements', () => {
+  const fields = { name: 'Updated Crochet Flower', description: 'An updated handmade crochet flower description.', category: 'Home Decor', selling_price: '599', regular_price: '899', tags: 'flower, decor', colors: 'Red, Blue' };
+  const keep = ownerProductUpdateDraft(fields, categories);
+  assert.deepEqual(keep.images, []);
+  assert.equal(keep.price_paise, 59900);
+  assert.equal(ownerProductUpdateDraft({ ...fields, images: ['data:image/png;base64,bad'] }, categories), null);
+  assert.equal(ownerProductUpdateDraft({ ...fields, images: [jpeg] }, categories).images.length, 1);
 });

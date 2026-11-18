@@ -25,18 +25,36 @@ export function decodeProductImage(value) {
   return { contentType: match[1], buffer };
 }
 
-export function ownerProductDraft(body, categories) {
+function ownerProductFields(body, categories) {
   const name = text(body?.name, 120);
   const description = text(body?.description, 2000);
   const category = text(body?.category, 80);
   const price_paise = pricePaise(body?.selling_price);
   const compare_at_paise = pricePaise(body?.regular_price);
-  const rawImages = Array.isArray(body?.images) ? body.images : [];
-  const images = rawImages.length >= 1 && rawImages.length <= 4 ? rawImages.map(decodeProductImage) : [];
   const keywords = text(body?.tags, 300).split(',').map(tag => tag.trim().toLowerCase()).filter(Boolean);
   const uniqueKeywords = [...new Set(keywords)];
   const colors = text(body?.colors, 500).split(',').map(color => color.trim()).filter(Boolean);
   const uniqueColors = colors.filter((color, index) => colors.findIndex(candidate => candidate.toLocaleLowerCase('en-IN') === color.toLocaleLowerCase('en-IN')) === index);
-  if (name.length < 3 || description.length < 20 || !categories.includes(category) || !price_paise || !compare_at_paise || compare_at_paise <= price_paise || images.length !== rawImages.length || uniqueKeywords.length > 10 || uniqueKeywords.some(tag => tag.length > 30) || uniqueColors.length > 12 || uniqueColors.some(color => color.length > 40)) return null;
-  return { name, description, category, price_paise, compare_at_paise, keywords: uniqueKeywords, colors: uniqueColors, images };
+  if (name.length < 3 || description.length < 20 || !categories.includes(category) || !price_paise || !compare_at_paise || compare_at_paise <= price_paise || uniqueKeywords.length > 10 || uniqueKeywords.some(tag => tag.length > 30) || uniqueColors.length > 12 || uniqueColors.some(color => color.length > 40)) return null;
+  return { name, description, category, price_paise, compare_at_paise, keywords: uniqueKeywords, colors: uniqueColors };
+}
+
+function productImages(body, required) {
+  const rawImages = Array.isArray(body?.images) ? body.images : [];
+  if (!rawImages.length) return required ? null : [];
+  if (rawImages.length > 4) return null;
+  const images = rawImages.map(decodeProductImage);
+  return images.every(Boolean) ? images : null;
+}
+
+export function ownerProductDraft(body, categories) {
+  const fields = ownerProductFields(body, categories);
+  const images = productImages(body, true);
+  return fields && images ? { ...fields, images } : null;
+}
+
+export function ownerProductUpdateDraft(body, categories) {
+  const fields = ownerProductFields(body, categories);
+  const images = productImages(body, false);
+  return fields && images ? { ...fields, images } : null;
 }

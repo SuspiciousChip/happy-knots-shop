@@ -19,7 +19,7 @@ import { checkoutSelection, discountPercent, pricedLines } from './catalog-optio
 import { createTestOrder, fetchTestPayment, isCapturedPayment, testCredentials, verifyPaymentSignature } from './razorpay.js';
 import { appBaseUrl } from './base-url.js';
 import { isOrderStatus, isOwner, ORDER_STATUSES } from './owner-access.js';
-import { ownerProductDraft } from './owner-product.js';
+import { ownerProductDraft, ownerProductUpdateDraft } from './owner-product.js';
 import { orderAnalytics } from './analytics.js';
 import { decryptValue, encryptValue } from './secure-data.js';
 import { generateTotpSecret, totpUri, verifyTotp } from './owner-mfa.js';
@@ -186,6 +186,10 @@ function storeProductImage(image, filename) {
     stream.once('finish', () => resolve(stream.id));
     stream.end(image.buffer);
   });
+}
+async function deleteStoredProductImages(urls) {
+  const ids = (Array.isArray(urls) ? urls : []).map(url => String(url).match(/^\/media\/products\/([a-f0-9]{24})$/i)?.[1]).filter(Boolean);
+  await Promise.allSettled(ids.map(id => productImages.delete(new ObjectId(id))));
 }
 async function publishInitialCatalog() {
   const migration = database.collection('migration');
@@ -553,14 +557,14 @@ app.get('/owner', ownerOnly, wrap(async (req, res) => {
   const selectedStatus = isOrderStatus(req.query.status) ? req.query.status : '';
   const filter = selectedStatus ? { status: selectedStatus } : {};
   if (Number.isSafeInteger(before) && before > 0) filter.id = { $lt: before };
-  const [history, totalOrders, openOrders, deliveredOrders, orderValue, analyticsRows, recentProducts, securityEvents] = await Promise.all([
+  const [history, totalOrders, openOrders, deliveredOrders, orderValue, analyticsRows, listedProducts, securityEvents] = await Promise.all([
     orders.find(filter).project({ id: 1, created_at: 1, status: 1, customer_name: 1, email: 1, total_paise: 1, subtotal_paise: 1 }).sort({ id: -1 }).limit(51).toArray(),
     orders.countDocuments(),
     orders.countDocuments({ status: { $nin: ['delivered', 'cancelled'] } }),
     orders.countDocuments({ status: 'delivered' }),
     orders.aggregate([{ $match: { status: { $ne: 'cancelled' } } }, { $group: { _id: null, value: { $sum: { $ifNull: ['$total_paise', '$subtotal_paise'] } } } }]).next(),
     orders.find({ created_at: { $gte: new Date(Date.now() - 370 * 86400000).toISOString() } }).project({ created_at: 1, status: 1, total_paise: 1, subtotal_paise: 1 }).toArray(),
-    products.find({ active: 1 }).project({ id: 1, name: 1, image: 1, price_paise: 1, compare_at_paise: 1, category: 1 }).sort({ id: -1 }).limit(20).toArray(),
+    products.find({ active: 1 }).project({ id: 1, name: 1, image: 1, price_paise: 1, compare_at_paise: 1, category: 1 }).sort({ id: -1 }).limit(100).toArray(),
     ownerAudit.find({}).project({ event: 1, owner_email: 1, details: 1, created_at: 1 }).sort({ _id: -1 }).limit(50).toArray()
   ]);
   const page = history.slice(0, 50);
@@ -568,7 +572,7 @@ app.get('/owner', ownerOnly, wrap(async (req, res) => {
     orders: page, statuses: ORDER_STATUSES, selected_status: selectedStatus,
     next_cursor: history.length > 50 ? page.at(-1).id : null,
     overview: { total_orders: totalOrders, open_orders: openOrders, delivered_orders: deliveredOrders, order_value_paise: orderValue?.value || 0 },
-    analytics: orderAnalytics(analyticsRows), categories: tagNames, recent_products: recentProducts,
+    analytics: orderAnalytics(analyticsRows), categories: tagNames, recent_products: listedProducts,
     listed_product_id: Number(req.query.listed) || null, security_events: securityEvents
   });
 }));
@@ -594,10 +598,63 @@ app.post('/owner/products', ownerOnly, express.json({ limit: '28mb' }), csrf, wr
       personalisation: null, badge: 'New', made_to_order: true, stock: 9999, active: 1, version: 1,
       units: 0, sales_revenue: 0, created_at: now(), created_by: res.locals.customer.email
     });
-    await auditOwner('product_listed', req, { product_id: id, product_name: draft.name });
+    await auditOwner('product_listed', req, { product_id: id, product_name: draft.name }).catch(error => console.error('Owner audit failed', error));
     res.json({ ok: true, redirect: `/owner?listed=${id}#products` });
   } catch (error) {
     await Promise.allSettled(imageIds.map(id => productImages.delete(id)));
+    throw error;
+  }
+}));
+app.get('/owner/products/:id/edit', ownerOnly, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  const product = Number.isSafeInteger(id) ? await products.findOne({ id, active: 1 }) : null;
+  if (!product) return res.sendStatus(404);
+  const colours = Array.isArray(product.variants) ? product.variants.map(variant => variant.label).filter(Boolean) : [];
+  render(res, 'owner_product_edit.html', {
+    product, categories: tagNames, colours: colours.join(', '), tags: (product.keywords || []).join(', '),
+    selling_price: (product.price_paise / 100).toFixed(2).replace(/\.00$/, ''),
+    regular_price: (product.compare_at_paise / 100).toFixed(2).replace(/\.00$/, ''),
+    saved: req.query.saved === '1'
+  });
+}));
+app.post('/owner/products/:id', ownerOnly, express.json({ limit: '28mb' }), csrf, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  const existing = Number.isSafeInteger(id) ? await products.findOne({ id, active: 1 }) : null;
+  if (!existing) return res.sendStatus(404);
+  if (!Number.isSafeInteger(Number(req.body.version)) || Number(req.body.version) !== existing.version)
+    return errorPage(res, 'Product changed', 'This product was updated in another owner session. Reload the edit page before saving again.', 409);
+  const draft = ownerProductUpdateDraft(req.body, tagNames);
+  if (!draft) return errorPage(res, 'Check the product details', 'Use valid prices, tags and colours. If replacing images, upload 1–4 valid JPG, PNG or WebP files under 5 MB each.', 400);
+  const newImageIds = [];
+  try {
+    for (const [index, image] of draft.images.entries()) newImageIds.push(await storeProductImage(image, `product-${id}-update-${Date.now()}-${index}`));
+    const imageUrls = newImageIds.length ? newImageIds.map(imageId => `/media/products/${imageId}`) : existing.images;
+    const variants = draft.colors.map((label, index) => ({
+      code: `color-${index + 1}`, label, image: imageUrls[index] || imageUrls[0],
+      price_paise: draft.price_paise, compare_at_paise: draft.compare_at_paise
+    }));
+    const previousColours = Array.isArray(existing.variants) ? existing.variants.map(variant => variant.label).filter(Boolean) : [];
+    const changedFields = [];
+    if (draft.name !== existing.name) changedFields.push('name');
+    if (draft.category !== existing.category) changedFields.push('category');
+    if (draft.description !== existing.description) changedFields.push('description');
+    if (draft.price_paise !== existing.price_paise) changedFields.push('price');
+    if (draft.compare_at_paise !== existing.compare_at_paise) changedFields.push('regular_price');
+    if (JSON.stringify(draft.keywords) !== JSON.stringify(existing.keywords || [])) changedFields.push('tags');
+    if (JSON.stringify(draft.colors) !== JSON.stringify(previousColours)) changedFields.push('colours');
+    if (newImageIds.length) changedFields.push('images');
+    const result = await products.updateOne({ id, active: 1, version: existing.version }, { $set: {
+      name: draft.name, category: draft.category, tags: [draft.category], keywords: draft.keywords,
+      description: draft.description, image: imageUrls[0], images: imageUrls, variants,
+      price_paise: draft.price_paise, compare_at_paise: draft.compare_at_paise,
+      updated_at: now(), updated_by: res.locals.customer.email
+    }, $inc: { version: 1 } });
+    if (!result.matchedCount) throw Object.assign(new Error('Product changed in another owner session'), { status: 409 });
+    if (newImageIds.length) await deleteStoredProductImages(existing.images);
+    await auditOwner('product_updated', req, { product_id: id, product_name: draft.name, changed_fields: changedFields }).catch(error => console.error('Owner audit failed', error));
+    res.json({ ok: true, redirect: `/owner/products/${id}/edit?saved=1` });
+  } catch (error) {
+    await Promise.allSettled(newImageIds.map(imageId => productImages.delete(imageId)));
     throw error;
   }
 }));
@@ -616,7 +673,7 @@ app.post('/owner/orders/:id/status', ownerOnly, csrf, wrap(async (req, res) => {
     $push: { status_history: { status: req.body.status, changed_at: changedAt, changed_by: res.locals.customer.email } }
   });
   if (!result.matchedCount) return res.sendStatus(404);
-  await auditOwner('order_status_changed', req, { order_id: id, status: req.body.status });
+  await auditOwner('order_status_changed', req, { order_id: id, status: req.body.status }).catch(error => console.error('Owner audit failed', error));
   res.redirect(`/owner/orders/${id}?updated=1`);
 }));
 app.use((error, req, res, next) => {

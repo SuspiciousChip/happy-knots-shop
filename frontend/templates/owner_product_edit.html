@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Edit {{ product.name }} | Happy Knots Owner{% endblock %}
+{% block body %}
+<div class="owner-shell">
+  <aside class="owner-sidebar">
+    <a class="owner-brand" href="/owner">Happy Knots <span>Owner</span></a>
+    <nav aria-label="Owner navigation"><a href="/owner">Overview</a><a href="/owner#orders">Orders</a><a class="active" href="/owner#products">Products</a><a href="/owner#security">Security</a><a href="/shop">View shop</a></nav>
+    <div class="owner-identity"><small>Signed in as</small><strong>{{ customer.email }}</strong><form action="/account/logout" method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Sign out</button></form></div>
+  </aside>
+  <main class="owner-main">
+    <a class="owner-back" href="/owner#products">← Back to products</a>
+    <header class="owner-heading"><div><span class="eyebrow">Product #{{ product.id }}</span><h1>Edit product</h1><p>Changes appear in the main shop as soon as you save them.</p></div><a class="button secondary" href="/products/{{ product.id }}">View live product</a></header>
+    {% if saved %}<p class="owner-success" role="status">Product changes saved and published.</p>{% endif %}
+    <section class="owner-panel owner-product-editor">
+      <form class="owner-product-form" id="ownerProductEditForm" action="/owner/products/{{ product.id }}" method="post">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="version" value="{{ product.version }}">
+        <label>Product name<input name="name" value="{{ product.name }}" required minlength="3" maxlength="120"></label>
+        <label>Category<select name="category" required>{% for category in categories %}<option value="{{ category }}" {{ 'selected' if product.category == category else '' }}>{{ category }}</option>{% endfor %}</select></label>
+        <label>Selling price (₹)<input name="selling_price" type="number" min="1" max="999999" step="0.01" value="{{ selling_price }}" required></label>
+        <label>Regular price (₹)<input name="regular_price" type="number" min="1" max="999999" step="0.01" value="{{ regular_price }}" required><small>Must remain higher than the selling price.</small></label>
+        <label class="owner-product-wide">Search tags <span class="optional">(optional)</span><input name="tags" maxlength="300" value="{{ tags }}" placeholder="bouquet, flower, gift"><small>Separate up to 10 tags with commas.</small></label>
+        <label class="owner-product-wide">Available colours <span class="optional">(optional)</span><input name="colors" maxlength="500" value="{{ colours }}" placeholder="Red, Blue, Olive Green"><small>Keep the colour order aligned with the image order.</small></label>
+        <label class="owner-product-wide">Description<textarea name="description" required minlength="20" maxlength="2000">{{ product.description }}</textarea></label>
+        <div class="owner-product-wide owner-current-images"><span>Current images</span><div class="owner-image-previews">{% for image in product.images %}<figure><img src="{{ image }}" alt=""><figcaption>{{ 'Cover image' if loop.first else 'Image ' + loop.index|string }}</figcaption></figure>{% endfor %}</div></div>
+        <label class="owner-product-wide">Replace product images <span class="optional">(optional)</span><input id="ownerEditImages" name="image_files" type="file" accept="image/jpeg,image/png,image/webp" multiple><small>Choose 1–4 new images to replace the complete gallery. Leave this empty to keep the current images.</small></label>
+        <div class="owner-image-previews" id="ownerEditImagePreviews" aria-live="polite"></div>
+        <div class="owner-product-actions"><button class="button" id="ownerProductEditSubmit">Save changes</button><p id="ownerProductEditMessage" role="status"></p></div>
+      </form>
+    </section>
+  </main>
+</div>
+<script src="/static/owner-product-edit.js?v=1" defer></script>
+{% endblock %}
