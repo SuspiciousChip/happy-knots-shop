@@ -16,6 +16,7 @@ import { shippingPaise, FREE_SHIPPING_THRESHOLD_PAISE, STANDARD_SHIPPING_PAISE }
 import { searchProducts } from './search.js';
 import { checkoutSelection, discountPercent, pricedLines } from './catalog-options.js';
 import { createTestOrder, fetchTestPayment, isCapturedPayment, testCredentials, verifyPaymentSignature } from './razorpay.js';
+import { appBaseUrl } from './base-url.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(root, '..');
@@ -318,7 +319,7 @@ async function startCognitoLogin(req, res, next) {
   } else {
     await sessions.updateOne({ _id: digest(sid) }, { $set: { oauth: { state, verifier, nonce, next, created_at: Date.now() } } });
   }
-  const url = oidc.buildAuthorizationUrl(config, { redirect_uri: `${process.env.APP_BASE_URL}/account/callback`, scope: 'openid email', response_type: 'code', state, nonce, code_challenge: challenge, code_challenge_method: 'S256' });
+  const url = oidc.buildAuthorizationUrl(config, { redirect_uri: `${appBaseUrl()}/account/callback`, scope: 'openid email', response_type: 'code', state, nonce, code_challenge: challenge, code_challenge_method: 'S256' });
   res.redirect(url.href);
 }
 app.get('/account/login', loginRateLimit, wrap(async (req, res) => {
@@ -335,7 +336,7 @@ app.post('/account/login', loginRateLimit, wrap(async (req, res) => {
   const next = safeNext(req.body.next);
   const verified = await verifyRecaptcha(req.body['g-recaptcha-response'], {
     secret: process.env.RECAPTCHA_SECRET_KEY,
-    hostname: new URL(process.env.APP_BASE_URL).hostname
+    hostname: new URL(appBaseUrl()).hostname
   });
   if (!verified) return res.status(400).send(env.render('login.html', {
     next, recaptcha_site_key: process.env.RECAPTCHA_SITE_KEY,
@@ -349,7 +350,7 @@ app.get('/account/callback', wrap(async (req, res) => {
   await sessions.updateOne({ _id: digest(req.sid) }, { $unset: { oauth: '' } });
   const config = await cognito();
   if (!config) return res.sendStatus(503);
-  const tokens = await oidc.authorizationCodeGrant(config, new URL(req.originalUrl, process.env.APP_BASE_URL), { pkceCodeVerifier: flow.verifier, expectedState: flow.state, expectedNonce: flow.nonce, idTokenExpected: true });
+  const tokens = await oidc.authorizationCodeGrant(config, new URL(req.originalUrl, appBaseUrl()), { pkceCodeVerifier: flow.verifier, expectedState: flow.state, expectedNonce: flow.nonce, idTokenExpected: true });
   const claims = tokens.claims();
   if (!claims?.sub || !claims.email || claims.email_verified !== true) return errorPage(res, 'Email verification required', 'Please verify your email before signing in.', 403);
   const customer = { sub: claims.sub, email: claims.email };
@@ -367,7 +368,7 @@ app.post('/account/logout', csrf, wrap(async (req, res) => {
   if (authReady()) {
     const url = new URL('/logout', process.env.COGNITO_DOMAIN);
     url.searchParams.set('client_id', process.env.COGNITO_CLIENT_ID);
-    url.searchParams.set('logout_uri', process.env.APP_BASE_URL);
+    url.searchParams.set('logout_uri', appBaseUrl());
     return res.redirect(url.href);
   }
   res.redirect('/');
