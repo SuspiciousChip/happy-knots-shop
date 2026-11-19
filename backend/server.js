@@ -93,7 +93,7 @@ app.use((req, res, next) => {
 });
 app.get('/healthz', (_req, res) => res.sendStatus(200));
 app.get('/googlea51508c5e38f5282.html', (_req, res) => res.sendFile(path.join(projectRoot, 'frontend', 'static', 'googlea51508c5e38f5282.html')));
-app.get('/robots.txt', (_req, res) => res.type('text/plain').set('Cache-Control', 'public, max-age=3600').send(robotsText()));
+app.get('/robots.txt', (_req, res) => res.type('text/plain').set({ 'Cache-Control': 'public, max-age=60, must-revalidate', 'X-Robots-Tag': 'noindex' }).send(robotsText()));
 const random = () => crypto.randomBytes(32).toString('base64url');
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
 const equal = (a, b) => typeof a === 'string' && typeof b === 'string' && crypto.timingSafeEqual(Buffer.from(digest(a)), Buffer.from(digest(b)));
