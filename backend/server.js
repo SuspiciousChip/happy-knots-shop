@@ -16,7 +16,7 @@ import { verifyRecaptcha } from './recaptcha.js';
 import { shippingPaise, FREE_SHIPPING_THRESHOLD_PAISE, STANDARD_SHIPPING_PAISE } from './shipping.js';
 import { searchProducts } from './search.js';
 import { checkoutSelection, discountPercent, pricedLines, withOrderItemImages } from './catalog-options.js';
-import { createTestOrder, fetchTestPayment, isCapturedPayment, testCredentials, verifyPaymentSignature } from './razorpay.js';
+import { createLiveOrder, createTestOrder, fetchLivePayment, fetchTestPayment, isCapturedPayment, liveCredentials, testCredentials, verifyPaymentSignature, verifyWebhookSignature } from './razorpay.js';
 import { appBaseUrl } from './base-url.js';
 import { isOrderStatus, isOwner, ORDER_STATUSES } from './owner-access.js';
 import { ownerProductDraft, ownerProductUpdateDraft } from './owner-product.js';
@@ -62,6 +62,8 @@ const loginLimits = database.collection('login_rate_limits');
 const customers = database.collection('customers');
 const categories = database.collection('customer_totals');
 const testPayments = database.collection('razorpay_test_payments');
+const onlinePayments = database.collection('razorpay_online_payments');
+const razorpayWebhookEvents = database.collection('razorpay_webhook_events');
 const ownerMfa = database.collection('owner_mfa');
 const ownerAudit = database.collection('owner_security_audit');
 const reviews = database.collection('product_reviews');
@@ -168,6 +170,10 @@ const testPaymentsReady = () => {
   try { testCredentials(); return true; } catch { return false; }
 };
 const testPaymentsOnly = (_req, res, next) => testPaymentsReady() ? next() : res.sendStatus(404);
+const livePaymentsReady = () => {
+  try { return !!process.env.RAZORPAY_WEBHOOK_SECRET && !!liveCredentials(); } catch { return false; }
+};
+const livePaymentsOnly = (_req, res, next) => livePaymentsReady() ? next() : res.sendStatus(404);
 const csrf = (req, res, next) => equal(req.body.csrf, req.login.csrf) ? next() : res.sendStatus(400);
 const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res)).catch(next);
 const now = () => new Date().toISOString();
@@ -175,6 +181,50 @@ const errorPage = (res, title, message, status = 200) => res.status(status).send
 async function nextId(name, session) {
   const result = await counters.findOneAndUpdate({ _id: name }, { $inc: { value: 1 } }, { upsert: true, returnDocument: 'after', session });
   return result.value;
+}
+
+async function finaliseOnlinePayment(paymentRecord, razorpayPayment, changedBy = 'razorpay') {
+  let orderId;
+  const transaction = connection.startSession();
+  try {
+    await transaction.withTransaction(async () => {
+      const current = await onlinePayments.findOne({ _id: paymentRecord._id }, { session: transaction });
+      if (!current) throw Object.assign(new Error('Payment record was not found'), { status: 404 });
+      if (current.status === 'paid' && current.order_id) { orderId = current.order_id; return; }
+      if (current.status !== 'pending' || current.razorpay_order_id !== razorpayPayment.order_id ||
+          current.amount_paise !== razorpayPayment.amount || razorpayPayment.status !== 'captured')
+        throw Object.assign(new Error('Payment could not be confirmed'), { status: 409 });
+      orderId = await nextId('orders', transaction);
+      const createdAt = now();
+      await orders.insertOne({
+        id: orderId, customer_sub: current.customer_sub, customer_name: current.customer.name,
+        email: current.customer.email, phone: current.customer.phone, address: current.customer.address,
+        address_line1: current.customer.address_line1, address_line2: current.customer.address_line2,
+        landmark: current.customer.landmark, city: current.customer.city, state: current.customer.state,
+        pincode: current.customer.pincode, subtotal_paise: current.subtotal_paise,
+        shipping_paise: current.shipping_paise, total_paise: current.amount_paise, status: 'new',
+        status_history: [{ status: 'new', changed_at: createdAt, changed_by: changedBy }],
+        payment_method: 'razorpay', payment_status: 'paid', razorpay_order_id: current.razorpay_order_id,
+        razorpay_payment_id: razorpayPayment.id, paid_at: createdAt, created_at: createdAt, items: current.items
+      }, { session: transaction });
+      const quantities = new Map();
+      for (const item of current.items) quantities.set(item.product_id, (quantities.get(item.product_id) || 0) + item.quantity);
+      for (const [productId, quantity] of quantities) {
+        const revenue = current.items.filter(item => item.product_id === productId).reduce((sum, item) => sum + item.unit_price_paise * item.quantity, 0);
+        const result = await products.updateOne({ id: productId, active: 1, stock: { $gte: quantity } },
+          { $inc: { stock: -quantity, version: 1, units: quantity, sales_revenue: revenue } }, { session: transaction });
+        if (result.matchedCount !== 1) throw Object.assign(new Error('A paid item is no longer available'), { status: 409 });
+      }
+      await stats.updateOne({ _id: 'shop' }, { $inc: { orders: 1, revenue: current.amount_paise } }, { upsert: true, session: transaction });
+      await categories.updateOne({ email: current.customer.email }, { $set: { customer_name: current.customer.name }, $inc: { orders: 1, spent: current.amount_paise } }, { upsert: true, session: transaction });
+      const completed = await onlinePayments.updateOne({ _id: current._id, status: 'pending' }, {
+        $set: { status: 'paid', order_id: orderId, razorpay_payment_id: razorpayPayment.id, paid_at: createdAt },
+        $unset: { expires_at: '' }
+      }, { session: transaction });
+      if (completed.modifiedCount !== 1) throw new Error('Payment was finalised concurrently');
+    });
+  } finally { await transaction.endSession(); }
+  return orderId;
 }
 function catalogProduct(row) {
   const variants = row.price_options || row.style_options || [];
@@ -272,7 +322,7 @@ app.get('/ai/service.json', (_req, res) => res.set('Cache-Control', 'public, max
   name: SITE_NAME,
   description: 'Made-to-order handmade crochet products created and delivered across India.',
   capabilities: ['Handmade crochet gifts', 'Personalised name hangings', 'Crochet bags and accessories', 'Crochet flowers and home decor'],
-  areaServed: 'India', delivery: '10–15 days', payment: 'Cash on delivery', contact: CONTACT_EMAIL
+  areaServed: 'India', delivery: '10–15 days', payment: 'Razorpay online payment or cash on delivery', contact: CONTACT_EMAIL
 }));
 app.get('/media/products/:id', wrap(async (req, res) => {
   if (!ObjectId.isValid(req.params.id)) return res.sendStatus(404);
@@ -351,7 +401,7 @@ app.get('/checkout', customerOnly, wrap(async (req, res) => {
     customers.findOne({ _id: res.locals.customer.sub }, { projection: { addresses: 1 } }),
     catalog()
   ]);
-  render(res, 'checkout.html', { profile: { addresses: (profile?.addresses || []).filter(isCompleteAddress) }, product_json: listing.map(publicProduct), checkout_token: sign(random()), shipping_threshold_paise: FREE_SHIPPING_THRESHOLD_PAISE, standard_shipping_paise: STANDARD_SHIPPING_PAISE, razorpay_test_checkout: testPaymentsReady() });
+  render(res, 'checkout.html', { profile: { addresses: (profile?.addresses || []).filter(isCompleteAddress) }, product_json: listing.map(publicProduct), checkout_token: sign(random()), shipping_threshold_paise: FREE_SHIPPING_THRESHOLD_PAISE, standard_shipping_paise: STANDARD_SHIPPING_PAISE, razorpay_live_checkout: livePaymentsReady(), razorpay_test_checkout: testPaymentsReady() });
 }));
 app.post('/payments/test/start', testPaymentsOnly, customerOnly, csrf, wrap(async (req, res) => {
   if (!unsign(req.body.checkout_token)) return res.sendStatus(400);
@@ -395,6 +445,86 @@ app.post('/payments/test/:token/verify', testPaymentsOnly, customerOnly, csrf, w
     return errorPage(res, 'Payment not confirmed', 'Razorpay has not confirmed a captured test payment. No shop order was created.', 409);
   await testPayments.updateOne({ _id: pending._id, status: 'pending' }, { $set: { status: 'paid', razorpay_payment_id: payment.id, paid_at: now() } });
   res.redirect(`/payments/test/${req.params.token}`);
+}));
+app.post('/payments/razorpay/start', livePaymentsOnly, customerOnly, csrf, wrap(async (req, res) => {
+  const rawCheckoutToken = unsign(req.body.checkout_token);
+  if (!rawCheckoutToken) return res.sendStatus(400);
+  const profile = await customers.findOne({ _id: res.locals.customer.sub }, { projection: { addresses: 1 } });
+  const address = profile?.addresses?.find(a => a.address_id === req.body.address_id);
+  if (!isCompleteAddress(address)) return errorPage(res, 'Complete delivery address required', 'Save and select a complete delivery address before paying.', 400);
+  let submitted;
+  try { submitted = JSON.parse(req.body.items || '[]'); } catch { return res.sendStatus(400); }
+  const selection = checkoutSelection(submitted);
+  if (!selection?.lines.length) return res.sendStatus(400);
+  const selected = await products.find({ id: { $in: [...selection.totals.keys()] } }).toArray();
+  const items = pricedLines(selected, selection);
+  if (!items) return errorPage(res, 'Bag changed', 'An item is no longer available in that quantity. Please review your bag.', 409);
+  const subtotal = items.reduce((sum, item) => sum + item.unit_price_paise * item.quantity, 0);
+  const shipping = shippingPaise(subtotal);
+  const amountPaise = subtotal + shipping;
+  const receiptKey = digest(req.body.checkout_token);
+  const previous = await onlinePayments.findOne({ checkout_receipt_key: receiptKey, customer_sub: res.locals.customer.sub, status: 'pending' });
+  if (previous) return res.redirect(`/payments/razorpay/${previous.public_token}`);
+  const token = random();
+  const publicToken = token.slice(0, 32);
+  const razorpayOrder = await createLiveOrder({ amountPaise, receipt: `hk_${crypto.randomBytes(12).toString('hex')}` });
+  const customer = {
+    name: address.name, email: res.locals.customer.email, phone: address.phone,
+    address_line1: address.address_line1, address_line2: address.address_line2,
+    landmark: address.landmark, city: address.city, state: address.state,
+    pincode: address.pincode, address: formatAddress(address)
+  };
+  await onlinePayments.insertOne({
+    _id: digest(token), public_token: publicToken, checkout_receipt_key: receiptKey,
+    customer_sub: res.locals.customer.sub, customer, items, subtotal_paise: subtotal,
+    shipping_paise: shipping, amount_paise: amountPaise, razorpay_order_id: razorpayOrder.id,
+    status: 'pending', created_at: now(), expires_at: new Date(Date.now() + 7 * 86400000)
+  });
+  res.cookie('hk_payment_token', sign(token), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 7 * 86400000 });
+  res.redirect(`/payments/razorpay/${publicToken}`);
+}));
+app.get('/payments/razorpay/:token', livePaymentsOnly, customerOnly, wrap(async (req, res) => {
+  const secretToken = unsign(req.cookies.hk_payment_token);
+  const payment = secretToken ? await onlinePayments.findOne({ _id: digest(secretToken), public_token: req.params.token, customer_sub: res.locals.customer.sub }) : null;
+  if (!payment) return res.sendStatus(404);
+  if (payment.status === 'paid' && payment.order_id) return res.redirect(`/account/orders/${payment.order_id}`);
+  if (payment.status !== 'pending' || payment.expires_at <= new Date()) return errorPage(res, 'Payment session expired', 'Return to checkout to start a new secure payment.', 410);
+  render(res, 'live-payment.html', { payment, token: req.params.token, key_id: liveCredentials().keyId });
+}));
+app.post('/payments/razorpay/:token/verify', livePaymentsOnly, customerOnly, csrf, wrap(async (req, res) => {
+  const secretToken = unsign(req.cookies.hk_payment_token);
+  const pending = secretToken ? await onlinePayments.findOne({ _id: digest(secretToken), public_token: req.params.token, customer_sub: res.locals.customer.sub }) : null;
+  if (!pending) return res.sendStatus(404);
+  if (pending.status === 'paid' && pending.order_id) return res.redirect(`/account/orders/${pending.order_id}`);
+  const credentials = liveCredentials();
+  if (pending.status !== 'pending' || req.body.razorpay_order_id !== pending.razorpay_order_id ||
+      !verifyPaymentSignature({ orderId: pending.razorpay_order_id, paymentId: req.body.razorpay_payment_id, signature: req.body.razorpay_signature }, credentials.keySecret))
+    return res.sendStatus(400);
+  const payment = await fetchLivePayment(req.body.razorpay_payment_id, credentials);
+  if (!isCapturedPayment(payment, { orderId: pending.razorpay_order_id, paymentId: req.body.razorpay_payment_id, amountPaise: pending.amount_paise }))
+    return errorPage(res, 'Payment confirmation pending', 'We have not received a captured-payment confirmation yet. Your order will appear automatically after Razorpay confirms it.', 409);
+  const orderId = await finaliseOnlinePayment(pending, payment);
+  res.cookie('hk_checkout_success', sign(String(orderId)), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 60000 });
+  res.clearCookie('hk_payment_token');
+  res.redirect(`/account/orders/${orderId}`);
+}));
+app.post('/webhooks/razorpay', express.raw({ type: 'application/json', limit: '512kb' }), wrap(async (req, res) => {
+  if (!livePaymentsReady() || !Buffer.isBuffer(req.body)) return res.sendStatus(404);
+  const signature = req.get('x-razorpay-signature');
+  if (!verifyWebhookSignature(req.body, signature, process.env.RAZORPAY_WEBHOOK_SECRET)) return res.sendStatus(400);
+  let event;
+  try { event = JSON.parse(req.body.toString('utf8')); } catch { return res.sendStatus(400); }
+  if (!['payment.captured', 'order.paid'].includes(event?.event)) return res.sendStatus(204);
+  const entity = event?.payload?.payment?.entity;
+  if (!entity?.id || !entity?.order_id) return res.sendStatus(400);
+  const pending = await onlinePayments.findOne({ razorpay_order_id: entity.order_id });
+  if (!pending) return res.sendStatus(204);
+  const payment = await fetchLivePayment(entity.id);
+  if (!isCapturedPayment(payment, { orderId: pending.razorpay_order_id, paymentId: entity.id, amountPaise: pending.amount_paise })) return res.sendStatus(409);
+  await finaliseOnlinePayment(pending, payment, 'razorpay_webhook');
+  const eventId = String(req.get('x-razorpay-event-id') || '').slice(0, 200);
+  if (eventId) await razorpayWebhookEvents.updateOne({ _id: eventId }, { $setOnInsert: { event: event.event, payment_id: entity.id, received_at: new Date() } }, { upsert: true });
+  res.sendStatus(204);
 }));
 app.post('/orders', customerOnly, csrf, wrap(async (req, res) => {
   const profile = await customers.findOne({ _id: res.locals.customer.sub });
@@ -784,6 +914,10 @@ export async function init() {
     orders.createIndex({ id: -1 }), orders.createIndex({ customer_sub: 1, id: -1 }), categories.createIndex({ email: 1 }, { unique: true }),
     sessions.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
     testPayments.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
+    onlinePayments.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
+    onlinePayments.createIndex({ razorpay_order_id: 1 }, { unique: true }),
+    onlinePayments.createIndex({ checkout_receipt_key: 1, customer_sub: 1 }, { unique: true }),
+    razorpayWebhookEvents.createIndex({ received_at: 1 }, { expireAfterSeconds: 90 * 86400 }),
     loginLimits.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
     ownerMfa.createIndex({ email: 1 }, { unique: true }),
     ownerAudit.createIndex({ created_at: -1 }), ownerAudit.createIndex({ owner_email: 1, created_at: -1 }),

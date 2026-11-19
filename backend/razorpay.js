@@ -10,9 +10,17 @@ export function testCredentials(env = process.env) {
   return { keyId, keySecret };
 }
 
+export function liveCredentials(env = process.env) {
+  const keyId = env.RAZORPAY_KEY_ID;
+  const keySecret = env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret || !/^rzp_live_[A-Za-z0-9]+$/.test(keyId))
+    throw new Error('Razorpay live credentials are not configured');
+  return { keyId, keySecret };
+}
+
 async function request(endpoint, { keyId, keySecret }, { method = 'GET', body, fetchImpl = fetch } = {}) {
   if (!/^\/[a-z0-9/?=&_-]+$/i.test(endpoint)) throw new TypeError('Invalid Razorpay endpoint');
-  if (!/^rzp_test_[A-Za-z0-9]+$/.test(keyId || '') || !keySecret) throw new Error('Razorpay test credentials are not configured');
+  if (!/^rzp_(?:test|live)_[A-Za-z0-9]+$/.test(keyId || '') || !keySecret) throw new Error('Razorpay credentials are not configured');
   const response = await fetchImpl(`${API_BASE}${endpoint}`, {
     method,
     headers: {
@@ -39,11 +47,19 @@ export async function createTestOrder({ amountPaise, receipt }, credentials = te
   return { id: order.id, amountPaise: order.amount, currency: order.currency, status: order.status };
 }
 
+export async function createLiveOrder(details, credentials = liveCredentials(), fetchImpl = fetch) {
+  return createTestOrder(details, credentials, fetchImpl);
+}
+
 export async function fetchTestPayment(paymentId, credentials = testCredentials(), fetchImpl = fetch) {
   if (typeof paymentId !== 'string' || !/^pay_[A-Za-z0-9]+$/.test(paymentId)) throw new TypeError('Invalid payment ID');
   const payment = await request(`/payments/${paymentId}`, credentials, { fetchImpl });
   if (payment?.id !== paymentId) throw new Error('Razorpay returned an invalid payment');
   return payment;
+}
+
+export async function fetchLivePayment(paymentId, credentials = liveCredentials(), fetchImpl = fetch) {
+  return fetchTestPayment(paymentId, credentials, fetchImpl);
 }
 
 export function verifyPaymentSignature({ orderId, paymentId, signature }, keySecret) {
@@ -56,4 +72,10 @@ export function verifyPaymentSignature({ orderId, paymentId, signature }, keySec
 export function isCapturedPayment(payment, { orderId, paymentId, amountPaise }) {
   return payment?.id === paymentId && payment?.order_id === orderId && payment?.status === 'captured' &&
     payment?.amount === amountPaise && payment?.currency === 'INR';
+}
+
+export function verifyWebhookSignature(rawBody, signature, secret) {
+  if (!Buffer.isBuffer(rawBody) || typeof signature !== 'string' || !/^[a-f0-9]{64}$/i.test(signature) || !secret) return false;
+  const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+  return crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(signature, 'hex'));
 }

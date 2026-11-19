@@ -86,7 +86,7 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.match(shopPage, /href="\/returns"/);
   assert.match(returnsPage, /damaged, defective, incorrect/);
   assert.match(returnsPage, /An unboxing video can help us investigate, but it is not required/);
-  assert.match(returnsPage, /UPI or bank-transfer refund/);
+  assert.match(returnsPage, /refund through Razorpay to the original payment method/);
   assert.match(returnsPage, /B3, Snn Raj Etternia, near Tcis Silver County Road, Haralur, Bengaluru, Karnataka, India/);
   assert.doesNotMatch(returnsPage, /P Palettes|ppalettes\.official|Jaipur/);
   assert.match(env.render('catalog.html', { ...base, tags: ['Door Hangings'] }), /class="site-footer"/);
@@ -103,11 +103,18 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   const checkoutPage = env.render('checkout.html', { ...base, checkout_token: 'token', shipping_threshold_paise: 100000, standard_shipping_paise: 8000 });
   assert.match(checkoutPage, /Delivery address/);
   assert.match(checkoutPage, /data-threshold="100000" data-standard-fee="8000"/);
-  assert.match(checkoutPage, /Total due on delivery/);
+  assert.match(checkoutPage, /Order total/);
+  assert.doesNotMatch(checkoutPage, /Pay securely online/);
   assert.doesNotMatch(checkoutPage, /Open Razorpay test checkout/);
   const testCheckout = env.render('checkout.html', { ...base, checkout_token: 'token', shipping_threshold_paise: 100000, standard_shipping_paise: 8000, razorpay_test_checkout: true });
   assert.match(testCheckout, /Open Razorpay test checkout/);
   assert.match(testCheckout, /₹1 demo/);
+  const liveCheckout = env.render('checkout.html', { ...base, checkout_token: 'token', shipping_threshold_paise: 100000, standard_shipping_paise: 8000, razorpay_live_checkout: true });
+  assert.match(liveCheckout, /Pay securely online/);
+  assert.match(liveCheckout, /Place cash-on-delivery order/);
+  const livePayment = env.render('live-payment.html', { ...base, payment: { amount_paise: 49900, razorpay_order_id: 'order_live', customer: { name: 'Asha', email: 'buyer@example.com', phone: '9876543210' } }, token: 'live-token', key_id: 'rzp_live_example' });
+  assert.match(livePayment, /Continue to Razorpay/);
+  assert.doesNotMatch(livePayment, /live-secret/);
   const testPayment = env.render('test-payment.html', { ...base, payment: { status: 'pending', amount_paise: 100, razorpay_order_id: 'order_test' }, token: 'test-token', key_id: 'rzp_test_example', email: base.customer.email });
   assert.match(testPayment, /will not place a Happy Knots order or charge real money/);
   assert.doesNotMatch(testPayment, /example-secret/);
