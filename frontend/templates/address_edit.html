@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Edit {{ address.label }} address | Happy Knots{% endblock %}
+{% block body %}
+<header class="account-header"><a class="account-brand" href="/">Happy Knots</a><a href="/account#addresses">Back to saved addresses</a></header>
+<main class="account-page address-edit-page">
+  <div class="account-intro"><span class="eyebrow">Delivery details</span><h1>Edit address</h1><p>Update this saved address for future orders.</p></div>
+  <section class="account-section">
+    <form class="address-form" action="/account/addresses/{{ address.address_id }}" method="post">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label>Address label<input name="label" value="{{ address.label }}" required maxlength="40"></label>
+      <label>Full name<input name="name" value="{{ address.name }}" required maxlength="120" autocomplete="shipping name"></label>
+      <label>Phone number<span class="phone-entry"><span class="phone-prefix" aria-hidden="true">+91</span><input class="delivery-phone" name="phone" value="{{ phone }}" type="tel" inputmode="numeric" pattern="[0-9]{10}" minlength="10" required autocomplete="shipping tel-national" aria-describedby="phone-help phone-error"></span><small id="phone-help" class="field-help">+91 is already included. Enter 10 digits only.</small><small id="phone-error" class="field-error" role="alert"></small></label>
+      <label class="full-width">Address line 1<input name="address_line1" value="{{ address.address_line1 }}" required maxlength="120" autocomplete="shipping address-line1"></label>
+      <label class="full-width">Address line 2 <span class="optional">(optional)</span><input name="address_line2" value="{{ address.address_line2 }}" maxlength="120" autocomplete="shipping address-line2"></label>
+      <label>City or town<input name="city" value="{{ address.city }}" required maxlength="80" autocomplete="shipping address-level2"></label>
+      <label>Landmark <span class="optional">(optional)</span><input name="landmark" value="{{ address.landmark }}" maxlength="120"></label>
+      <label>State or Union Territory<select name="state" required autocomplete="shipping address-level1"><option value="">Select a state or UT</option>{% for state in states %}<option value="{{ state }}" {{ 'selected' if address.state == state else '' }}>{{ state }}</option>{% endfor %}</select></label>
+      <label>PIN code<input name="pincode" value="{{ address.pincode }}" required inputmode="numeric" pattern="[1-9][0-9]{5}" minlength="6" maxlength="6" autocomplete="shipping postal-code"></label>
+      <div class="address-edit-actions"><button class="button">Save changes</button><a class="button secondary" href="/account#addresses">Cancel</a></div>
+    </form>
+  </section>
+</main>
+<script src="/static/address-form.js" defer></script>
+{% endblock %}

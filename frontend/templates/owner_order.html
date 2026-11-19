@@ -11,6 +11,7 @@
     <a class="owner-back" href="/owner">← Back to all orders</a>
     <header class="owner-order-heading"><div><span class="eyebrow">Placed {{ order.created_at|truncate(10, true, '') }}</span><h1>Order #{{ order.id }}</h1><p>{{ 'Razorpay · Paid' if order.payment_method == 'razorpay' else 'Cash on delivery' }} · ₹{{ (order.total_paise or order.subtotal_paise)|money }}</p></div><span class="owner-status status-{{ order.status }}">{{ order.status|title }}</span></header>
     {% if updated %}<p class="owner-success" role="status">Order status updated.</p>{% endif %}
+    {% if return_updated %}<p class="owner-success" role="status">Return or replacement request updated.</p>{% endif %}
     <div class="owner-order-grid">
       <section class="owner-panel"><h2>Items</h2>{% for item in order['items'] %}<div class="owner-order-line">{% if item.image %}<img class="order-item-image" src="{{ item.image }}" alt="{{ item.product_name }}{% if item.variant_label %} in {{ item.variant_label }}{% endif %}">{% endif %}<div><h3>{{ item.product_name }}</h3>{% if item.variant_label %}<p>{{ item.variant_label }}</p>{% endif %}{% if item.personalisation %}<p><strong>Personalisation:</strong> {{ item.personalisation }}</p>{% endif %}<p>₹{{ item.unit_price_paise|money }} × {{ item.quantity }}</p></div><strong>₹{{ (item.unit_price_paise * item.quantity)|money }}</strong></div>{% endfor %}<div class="owner-totals"><p><span>Items</span><strong>₹{{ order.subtotal_paise|money }}</strong></p><p><span>Shipping</span><strong>{{ 'Free' if not order.shipping_paise else '₹' + (order.shipping_paise|money) }}</strong></p><p class="grand"><span>Total due</span><strong>₹{{ (order.total_paise or order.subtotal_paise)|money }}</strong></p></div></section>
       <div class="owner-order-aside">
@@ -19,6 +20,11 @@
         <section class="owner-panel"><h2>Delivery address</h2><p class="address-lines">{{ order.address }}</p></section>
       </div>
     </div>
+    <section class="owner-panel owner-returns" id="returns"><div class="owner-toolbar"><div><span class="eyebrow">Customer care</span><h2>Return &amp; replacement requests</h2><p>Review against the published policy. Approval records your decision; it does not automatically send a Razorpay refund.</p></div></div>
+      {% if return_requests %}{% for request in return_requests %}<article class="owner-return-card"><div class="owner-return-item">{% if request.item.image %}<img class="order-item-image" src="{{ request.item.image }}" alt="">{% endif %}<div><strong>Request #{{ request.id }} · {{ request.item.product_name }}</strong><p>{{ return_resolutions[request.resolution] }} · {{ return_reasons[request.reason] }}</p><p>{{ request.details }}</p><small>Submitted {{ request.created_at|truncate(16, true, '')|replace('T', ' ') }}</small></div><span class="owner-status status-{{ 'delivered' if request.status in ['approved','resolved'] else ('cancelled' if request.status == 'rejected' else 'new') }}">{{ request.status|replace('_', ' ')|title }}</span></div>
+        <form class="owner-return-form" action="/owner/return-requests/{{ request.id }}/status" method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><label>Status<select name="status">{% for status in return_statuses %}<option value="{{ status }}" {{ 'selected' if request.status == status else '' }}>{{ status|replace('_', ' ')|title }}</option>{% endfor %}</select></label><label>Note to customer<textarea name="owner_note" maxlength="1000" placeholder="Explain the decision or next steps.">{{ request.owner_note }}</textarea></label><button class="button">Save decision</button></form>
+      </article>{% endfor %}{% else %}<div class="owner-empty"><h3>No requests for this order</h3><p>Eligible customer requests will appear here.</p></div>{% endif %}
+    </section>
   </main>
 </div>
 {% endblock %}

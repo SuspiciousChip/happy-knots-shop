@@ -24,6 +24,7 @@ import { orderAnalytics } from './analytics.js';
 import { decryptValue, encryptValue } from './secure-data.js';
 import { generateTotpSecret, totpUri, verifyTotp } from './owner-mfa.js';
 import { reviewDraft, reviewerDisplayName, reviewSummary } from './reviews.js';
+import { RETURN_REASONS, RETURN_RESOLUTIONS, RETURN_STATUSES, returnRequestDraft } from './returns.js';
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, SITE_UPDATED, CONTACT_EMAIL, FAQS, JOURNAL_PATH, seoFor, organizationSchema, websiteSchema, faqSchema, productSchema, breadcrumbSchema, robotsText, sitemapXml, rssXml, googleProductsXml, llmsText } from './seo.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
@@ -67,6 +68,7 @@ const razorpayWebhookEvents = database.collection('razorpay_webhook_events');
 const ownerMfa = database.collection('owner_mfa');
 const ownerAudit = database.collection('owner_security_audit');
 const reviews = database.collection('product_reviews');
+const returnRequests = database.collection('return_requests');
 const productImages = new GridFSBucket(database, { bucketName: 'product_images' });
 const catalogDrafts = JSON.parse(fs.readFileSync(path.join(projectRoot, 'database/product-drafts.json'), 'utf8'));
 const env = nunjucks.configure(path.join(projectRoot, 'frontend', 'templates'), { autoescape: true, noCache: process.env.NODE_ENV !== 'production' });
@@ -708,6 +710,24 @@ app.post('/account/addresses', customerOnly, csrf, wrap(async (req, res) => {
   if (!result.modifiedCount) return errorPage(res, 'Address limit reached', 'You can save up to five addresses.', 409);
   res.redirect('/account#addresses');
 }));
+app.get('/account/addresses/:id/edit', customerOnly, wrap(async (req, res) => {
+  const profile = await customers.findOne({ _id: res.locals.customer.sub, 'addresses.address_id': req.params.id }, { projection: { addresses: 1 } });
+  const address = profile?.addresses?.find(item => item.address_id === req.params.id);
+  if (!address) return res.sendStatus(404);
+  render(res, 'address_edit.html', { address, states: INDIAN_STATES_AND_UTS, phone: String(address.phone || '').replace(/^\+91\s*/, '') });
+}));
+app.post('/account/addresses/:id', customerOnly, csrf, wrap(async (req, res) => {
+  const fields = parseAddress(req.body);
+  if (!fields) return errorPage(res, 'Check the address', 'Enter a complete Indian delivery address and a 10-digit mobile number.', 400);
+  const result = await customers.updateOne({ _id: res.locals.customer.sub, 'addresses.address_id': req.params.id }, { $set: {
+    'addresses.$.label': fields.label, 'addresses.$.name': fields.name, 'addresses.$.phone': fields.phone,
+    'addresses.$.address_line1': fields.address_line1, 'addresses.$.address_line2': fields.address_line2,
+    'addresses.$.landmark': fields.landmark, 'addresses.$.city': fields.city,
+    'addresses.$.state': fields.state, 'addresses.$.pincode': fields.pincode
+  } });
+  if (!result.matchedCount) return res.sendStatus(404);
+  res.redirect('/account#addresses');
+}));
 app.post('/account/addresses/:id/delete', customerOnly, csrf, wrap(async (req, res) => {
   await customers.updateOne({ _id: res.locals.customer.sub }, { $pull: { addresses: { address_id: req.params.id } } });
   res.redirect('/account#addresses');
@@ -718,7 +738,25 @@ app.get('/account/orders/:id', customerOnly, wrap(async (req, res) => {
   if (!order) return res.sendStatus(404);
   const clear_cart = unsign(req.cookies.hk_checkout_success) === String(id);
   if (req.cookies.hk_checkout_success) res.clearCookie('hk_checkout_success');
-  render(res, 'customer_order.html', { order, clear_cart });
+  const requests = await returnRequests.find({ order_id: id, customer_sub: res.locals.customer.sub }).sort({ id: -1 }).toArray();
+  render(res, 'customer_order.html', { order, clear_cart, return_requests: requests, return_reasons: RETURN_REASONS, return_resolutions: RETURN_RESOLUTIONS, request_submitted: req.query.request === 'submitted' });
+}));
+app.post('/account/orders/:id/return-requests', customerOnly, csrf, wrap(async (req, res) => {
+  const orderId = Number(req.params.id);
+  const order = Number.isSafeInteger(orderId) ? await orders.findOne({ id: orderId, customer_sub: res.locals.customer.sub }) : null;
+  if (!order) return res.sendStatus(404);
+  if (order.status !== 'delivered') return errorPage(res, 'Request not available yet', 'A return or replacement request can be opened after the order is marked delivered.', 409);
+  const draft = returnRequestDraft(req.body, order.items.length);
+  if (!draft) return errorPage(res, 'Check your request', 'Choose an item, an eligible policy reason and add at least 20 characters explaining what happened.', 400);
+  const item = order.items[draft.item_index];
+  const request = { id: await nextId('return_requests'), order_id: orderId, customer_sub: res.locals.customer.sub,
+    customer_email: order.email, customer_name: order.customer_name, item_index: draft.item_index,
+    item: { product_id: item.product_id, product_name: item.product_name, variant_label: item.variant_label || '', image: item.image || '', quantity: item.quantity },
+    reason: draft.reason, resolution: draft.resolution, details: draft.details, status: 'submitted', created_at: now(), updated_at: now(),
+    history: [{ status: 'submitted', changed_at: now(), changed_by: res.locals.customer.email }] };
+  try { await returnRequests.insertOne(request); }
+  catch (error) { if (error?.code === 11000) return errorPage(res, 'Request already submitted', 'A return or replacement request already exists for this item.', 409); throw error; }
+  res.redirect(`/account/orders/${orderId}?request=submitted#return-request`);
 }));
 const safeOwnerNext = value => typeof value === 'string' && /^\/owner(?:[/?#]|$)/.test(value) && !value.includes(String.fromCharCode(92)) ? value : '/owner';
 app.get('/owner/mfa', ownerIdentityOnly, wrap(async (req, res) => {
@@ -772,7 +810,7 @@ app.get('/owner', ownerOnly, wrap(async (req, res) => {
   const selectedStatus = isOrderStatus(req.query.status) ? req.query.status : '';
   const filter = selectedStatus ? { status: selectedStatus } : {};
   if (Number.isSafeInteger(before) && before > 0) filter.id = { $lt: before };
-  const [history, totalOrders, openOrders, deliveredOrders, orderValue, analyticsRows, listedProducts, securityEvents, productReviews] = await Promise.all([
+  const [history, totalOrders, openOrders, deliveredOrders, orderValue, analyticsRows, listedProducts, securityEvents, productReviews, recentReturns] = await Promise.all([
     orders.find(filter).project({ id: 1, created_at: 1, status: 1, customer_name: 1, email: 1, total_paise: 1, subtotal_paise: 1 }).sort({ id: -1 }).limit(51).toArray(),
     orders.countDocuments(),
     orders.countDocuments({ status: { $nin: ['delivered', 'cancelled'] } }),
@@ -781,7 +819,8 @@ app.get('/owner', ownerOnly, wrap(async (req, res) => {
     orders.find({ created_at: { $gte: new Date(Date.now() - 370 * 86400000).toISOString() } }).project({ created_at: 1, status: 1, total_paise: 1, subtotal_paise: 1 }).toArray(),
     products.find({ active: 1 }).project({ id: 1, name: 1, image: 1, price_paise: 1, compare_at_paise: 1, category: 1 }).sort({ id: -1 }).limit(100).toArray(),
     ownerAudit.find({}).project({ event: 1, owner_email: 1, details: 1, created_at: 1 }).sort({ _id: -1 }).limit(50).toArray(),
-    reviews.find({}).project({ product_id: 1, product_name: 1, display_name: 1, rating: 1, comment: 1, verified_purchase: 1, status: 1, created_at: 1 }).sort({ status: -1, created_at: -1 }).limit(100).toArray()
+    reviews.find({}).project({ product_id: 1, product_name: 1, display_name: 1, rating: 1, comment: 1, verified_purchase: 1, status: 1, created_at: 1 }).sort({ status: -1, created_at: -1 }).limit(100).toArray(),
+    returnRequests.find({}).sort({ id: -1 }).limit(100).toArray()
   ]);
   const page = history.slice(0, 50);
   render(res, 'owner.html', {
@@ -789,7 +828,8 @@ app.get('/owner', ownerOnly, wrap(async (req, res) => {
     next_cursor: history.length > 50 ? page.at(-1).id : null,
     overview: { total_orders: totalOrders, open_orders: openOrders, delivered_orders: deliveredOrders, order_value_paise: orderValue?.value || 0 },
     analytics: orderAnalytics(analyticsRows), categories: tagNames, recent_products: listedProducts,
-    listed_product_id: Number(req.query.listed) || null, security_events: securityEvents, product_reviews: productReviews
+    listed_product_id: Number(req.query.listed) || null, security_events: securityEvents, product_reviews: productReviews, return_requests: recentReturns,
+    return_reasons: RETURN_REASONS, return_resolutions: RETURN_RESOLUTIONS
   });
 }));
 app.post('/owner/reviews/:id/status', ownerOnly, csrf, wrap(async (req, res) => {
@@ -885,7 +925,19 @@ app.get('/owner/orders/:id', ownerOnly, wrap(async (req, res) => {
   const id = Number(req.params.id);
   const order = Number.isSafeInteger(id) ? await orders.findOne({ id }) : null;
   if (!order) return res.sendStatus(404);
-  render(res, 'owner_order.html', { order, statuses: ORDER_STATUSES, updated: req.query.updated === '1' });
+  const requests = await returnRequests.find({ order_id: id }).sort({ id: -1 }).toArray();
+  render(res, 'owner_order.html', { order, statuses: ORDER_STATUSES, updated: req.query.updated === '1', return_requests: requests, return_statuses: RETURN_STATUSES, return_reasons: RETURN_REASONS, return_resolutions: RETURN_RESOLUTIONS, return_updated: req.query.return_updated === '1' });
+}));
+app.post('/owner/return-requests/:id/status', ownerOnly, csrf, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  const status = String(req.body.status || '');
+  const ownerNote = String(req.body.owner_note || '').trim();
+  if (!Number.isSafeInteger(id) || !RETURN_STATUSES.includes(status) || ownerNote.length > 1000) return res.sendStatus(400);
+  const changedAt = now();
+  const result = await returnRequests.findOneAndUpdate({ id }, { $set: { status, owner_note: ownerNote, updated_at: changedAt, updated_by: res.locals.customer.email }, $push: { history: { status, changed_at: changedAt, changed_by: res.locals.customer.email } } }, { returnDocument: 'after' });
+  if (!result) return res.sendStatus(404);
+  await auditOwner('return_request_updated', req, { request_id: id, order_id: result.order_id, status }).catch(error => console.error('Owner audit failed', error));
+  res.redirect(`/owner/orders/${result.order_id}?return_updated=1#returns`);
 }));
 app.post('/owner/orders/:id/status', ownerOnly, csrf, wrap(async (req, res) => {
   const id = Number(req.params.id);
@@ -921,7 +973,8 @@ export async function init() {
     loginLimits.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
     ownerMfa.createIndex({ email: 1 }, { unique: true }),
     ownerAudit.createIndex({ created_at: -1 }), ownerAudit.createIndex({ owner_email: 1, created_at: -1 }),
-    reviews.createIndex({ product_id: 1, status: 1, created_at: -1 }), reviews.createIndex({ product_id: 1, customer_sub: 1 }, { unique: true })]);
+    reviews.createIndex({ product_id: 1, status: 1, created_at: -1 }), reviews.createIndex({ product_id: 1, customer_sub: 1 }, { unique: true }),
+    returnRequests.createIndex({ id: 1 }, { unique: true }), returnRequests.createIndex({ order_id: 1, item_index: 1 }, { unique: true }), returnRequests.createIndex({ status: 1, created_at: -1 })]);
   await publishInitialCatalog();
   const missingImageOrders = await orders.find({ items: { $elemMatch: { image: { $exists: false } } } }).project({ id: 1, items: 1 }).toArray();
   if (missingImageOrders.length) {

@@ -13,6 +13,17 @@
   </section>
   {% if order.status_history %}<section class="account-section"><h2>Status history</h2><ol class="status-history">{% for event in order.status_history %}<li><span class="badge">{{ event.status|title }}</span><time>{{ event.changed_at|truncate(16, true, '')|replace('T', ' ') }}</time></li>{% endfor %}</ol></section>{% endif %}
   <section class="account-section"><h2>Delivery details</h2><p>{{ order.customer_name }}<br>{{ order.phone }}</p><p class="address-lines">{{ order.address }}</p><p>{{ order.email }}</p></section>
+  <section class="account-section return-section" id="return-request"><span class="eyebrow">After delivery</span><h2>Return or replace an item</h2>
+    {% if request_submitted %}<p class="request-success" role="status">Your request has been sent. We will review it before confirming a refund or replacement.</p>{% endif %}
+    {% if return_requests %}<div class="customer-requests">{% for request in return_requests %}<article><div><strong>Request #{{ request.id }} · {{ request.item.product_name }}</strong><p>{{ return_resolutions[request.resolution] }} · {{ return_reasons[request.reason] }}</p>{% if request.owner_note %}<p><strong>Owner note:</strong> {{ request.owner_note }}</p>{% endif %}</div><span class="owner-status status-{{ 'delivered' if request.status in ['approved','resolved'] else ('cancelled' if request.status == 'rejected' else 'new') }}">{{ request.status|replace('_', ' ')|title }}</span></article>{% endfor %}</div>{% endif %}
+    {% if order.status == 'delivered' %}<form class="return-request-form" action="/account/orders/{{ order.id }}/return-requests" method="post"><input type="hidden" name="csrf" value="{{ csrf }}">
+      <label>Item<select name="item_index" required><option value="">Choose an item</option>{% for item in order['items'] %}<option value="{{ loop.index0 }}">{{ item.product_name }}{% if item.variant_label %} — {{ item.variant_label }}{% endif %}</option>{% endfor %}</select></label>
+      <label>What happened?<select name="reason" required><option value="">Choose a policy reason</option>{% for value, label in return_reasons %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+      <label>Preferred resolution<select name="resolution" required>{% for value, label in return_resolutions %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+      <label class="full-width">Tell us what happened<textarea name="details" minlength="20" maxlength="1500" required placeholder="Describe the damage, defect, incorrect item, listing difference or qualifying delay."></textarea></label>
+      <div class="full-width return-form-note"><p>Submit preferably within 48 hours of delivery. Requests are reviewed under our <a href="/returns">refund and return policy</a>; submitting does not guarantee automatic approval.</p><button class="button">Send request</button></div>
+    </form>{% else %}<p class="account-muted">This option becomes available when the order is marked delivered. If you need to cancel before dispatch, contact us from the <a href="/contact">contact page</a>.</p>{% endif %}
+  </section>
 </main>
 {% if clear_cart %}<script>localStorage.removeItem('happy-knots-cart');</script>{% endif %}
 {% endblock %}

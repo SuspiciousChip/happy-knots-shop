@@ -1,5 +1,4 @@
-const phone = document.querySelector('#delivery-phone');
-if (phone) {
+document.querySelectorAll('#delivery-phone, .delivery-phone').forEach(phone => {
   const error = document.querySelector('#phone-error');
   const validatePhone = () => {
     const value = phone.value.trim();
@@ -13,4 +12,4 @@ if (phone) {
   phone.addEventListener('input', validatePhone);
   phone.addEventListener('blur', validatePhone);
   phone.addEventListener('invalid', validatePhone);
-}
+});

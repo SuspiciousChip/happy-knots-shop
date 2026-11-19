@@ -38,10 +38,10 @@
     {% for a in profile.addresses %}
     <article class="saved-address">
       <div><h3>{{ a.label }}</h3><p>{{ a.name }}<br>{{ a.phone }}</p>{% if a.city %}<p class="address-lines">{{ a.address_line1 }}{% if a.address_line2 %}<br>{{ a.address_line2 }}{% endif %}{% if a.landmark %}<br>Landmark: {{ a.landmark }}{% endif %}<br>{{ a.city }}, {{ a.state }} – {{ a.pincode }}</p>{% else %}<p class="address-lines">{{ a.address }}</p><p class="address-warning">This older address needs complete delivery details before checkout. Remove it and add it again below.</p>{% endif %}</div>
-      <form action="/account/addresses/{{ a.address_id }}/delete" method="post">
+      <div class="saved-address-actions"><a class="button secondary" href="/account/addresses/{{ a.address_id }}/edit">Edit</a><form action="/account/addresses/{{ a.address_id }}/delete" method="post">
         <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ profile.version }}">
         <button class="text-button" aria-label="Remove {{ a.label }} address">Remove</button>
-      </form>
+      </form></div>
     </article>
     {% else %}<p class="account-muted">No saved addresses yet. Add one below to use at checkout.</p>{% endfor %}
     {% if profile.addresses|length < 5 %}
