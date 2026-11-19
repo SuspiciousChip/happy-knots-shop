@@ -91,7 +91,12 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.doesNotMatch(returnsPage, /P Palettes|ppalettes\.official|Jaipur/);
   assert.match(env.render('catalog.html', { ...base, tags: ['Door Hangings'] }), /class="site-footer"/);
   assert.match(env.render('catalog.html', { ...base, tags: ['Door Hangings'] }), /Door Hangings/);
-  assert.match(env.render('product.html', { ...base, product: { id: 1, name: 'Example', price_paise: 200, tags: [], stock: 1 } }), /Add to bag/);
+  assert.match(env.render('product.html', { ...base, product: { id: 1, name: 'Example', price_paise: 200, tags: [], stock: 1 }, reviews: [], review_summary: { count: 0, average: 0 } }), /Add to bag/);
+  const reviewPage = env.render('product.html', { ...base, product: { id: 1, name: 'Example', price_paise: 200, tags: [], stock: 1 }, reviews: [{ display_name: 'Asha K.', rating: 5, stars: '★★★★★', comment: 'Beautifully made and carefully finished.', created_at: '2026-11-19T10:00:00.000Z' }], review_summary: { count: 1, average: 5 }, can_review: true });
+  assert.match(reviewPage, /Customer reviews/);
+  assert.match(reviewPage, /Verified purchase/);
+  assert.match(reviewPage, /action="\/products\/1\/reviews"/);
+  assert.match(reviewPage, /Beautifully made and carefully finished/);
   const pricedProduct = { id: 1, name: 'Example', price_paise: 49900, compare_at_paise: 89900, tags: [], stock: 1 };
   assert.match(env.render('product.html', { ...base, product: pricedProduct }), /<del aria-label="Regular price">₹899\.00<\/del>.*<strong>₹499\.00<\/strong>/);
   assert.match(env.render('catalog.html', { ...base, products: [pricedProduct], tags: [] }), /<del aria-label="Regular price">₹899\.00<\/del>.*<strong>₹499\.00<\/strong>/);
@@ -130,7 +135,7 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.doesNotMatch(env.render('customer_order.html', { ...base, order, clear_cart: false }), /localStorage\.removeItem/);
   const ownerOrder = { ...order, status: 'new', customer_name: 'Test Customer', email: 'buyer@example.com', phone: '9876543210', address: 'Test address' };
   const analytics = { day: [], week: [], month: [], year: [] };
-  const ownerPage = env.render('owner.html', { ...base, customer: { email: 'aryandixit2905@gmail.com' }, orders: [ownerOrder], statuses: ['new', 'delivered'], selected_status: '', overview: { total_orders: 1, open_orders: 1, delivered_orders: 0, order_value_paise: 10400 }, analytics, categories: ['Home Decor'], recent_products: [] });
+  const ownerPage = env.render('owner.html', { ...base, customer: { email: 'aryandixit2905@gmail.com' }, orders: [ownerOrder], statuses: ['new', 'delivered'], selected_status: '', overview: { total_orders: 1, open_orders: 1, delivered_orders: 0, order_value_paise: 10400 }, analytics, categories: ['Home Decor'], recent_products: [], product_reviews: [{ _id: '507f1f77bcf86cd799439011', product_id: 1, product_name: 'Example', display_name: 'Asha K.', rating: 5, comment: 'Beautifully made and carefully finished.', verified_purchase: true, status: 'pending' }] });
   assert.match(ownerPage, /Private workspace/);
   assert.match(ownerPage, /buyer@example\.com/);
   assert.doesNotMatch(ownerPage, /rakhidixit987@gmail\.com/);
@@ -138,6 +143,8 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.match(ownerPage, /id="ownerProductForm"/);
   assert.match(ownerPage, /name="regular_price"/);
   assert.match(ownerPage, /name="colors"/);
+  assert.match(ownerPage, /Verified purchase/);
+  assert.match(ownerPage, /action="\/owner\/reviews\/507f1f77bcf86cd799439011\/status"/);
   const ownerOrderPage = env.render('owner_order.html', { ...base, customer: { email: 'aryandixit2905@gmail.com' }, order: ownerOrder, statuses: ['new', 'delivered'], updated: false });
   assert.match(ownerOrderPage, /action="\/owner\/orders\/11\/status"/);
   assert.match(ownerOrderPage, /src="\/media\/products\/blue-bag"/);

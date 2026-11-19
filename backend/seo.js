@@ -1,6 +1,6 @@
 export const SITE_URL = 'https://www.happyknots.shop';
 export const SITE_NAME = 'The Happy Knots';
-export const SITE_DESCRIPTION = 'Shop handmade crochet bags, flowers, accessories and home decor by Rakhi Dixit. Made-to-order pieces are delivered across India in 10–15 days.';
+export const SITE_DESCRIPTION = 'Shop handmade crochet gifts, yarn flowers, bags and home decor by Rakhi Dixit. Every piece is made to order and delivered across India in 10–15 days.';
 export const SITE_UPDATED = '2026-11-19';
 export const CONTACT_EMAIL = 'h4appy.knots.official@gmail.com';
 export const INSTAGRAM_URL = 'https://www.instagram.com/the_happy_knots_by_rakhi/';
@@ -26,7 +26,7 @@ export function seoFor(pathname, data = {}) {
 
   if (pathname === '/shop') {
     title = 'Shop Handmade Crochet Products | The Happy Knots';
-    description = 'Browse handmade crochet bags, flowers, rakhis, accessories, door hangings and home decor, made to order by Rakhi Dixit.';
+    description = 'Browse made-to-order crochet bags, rakhi, yarn flower bouquets, door torans, accessories and handmade home decor by Rakhi Dixit.';
   } else if (pathname === '/about') {
     title = 'Our Story | The Happy Knots';
     description = 'Meet Rakhi Dixit, the maker and founder of The Happy Knots, and Aryan Dixit, who leads the handmade crochet shop online.';
@@ -82,11 +82,15 @@ export const faqSchema = () => ({
   '@type': 'FAQPage', mainEntity: FAQS.map(item => ({ '@type': 'Question', name: item.question, acceptedAnswer: { '@type': 'Answer', text: item.answer } }))
 });
 
-export const productSchema = product => ({
+export const productSchema = (product, reviewData = {}) => ({
   '@type': 'Product', '@id': `${SITE_URL}/products/${product.id}#product`, name: product.name,
   description: product.description, image: (product.images?.length ? product.images : [product.image]).filter(Boolean).map(absoluteUrl),
   category: product.tags?.[0] || 'Handmade crochet', sku: product.sku || `HK-${product.id}`,
   brand: { '@type': 'Brand', name: SITE_NAME },
+  ...(reviewData.summary?.count ? {
+    aggregateRating: { '@type': 'AggregateRating', ratingValue: reviewData.summary.average, reviewCount: reviewData.summary.count, bestRating: 5, worstRating: 1 },
+    review: (reviewData.reviews || []).slice(0, 20).map(item => ({ '@type': 'Review', author: { '@type': 'Person', name: item.display_name }, datePublished: String(item.created_at || '').slice(0, 10), reviewRating: { '@type': 'Rating', ratingValue: item.rating, bestRating: 5, worstRating: 1 }, reviewBody: item.comment }))
+  } : {}),
   offers: {
     '@type': 'Offer', url: `${SITE_URL}/products/${product.id}`, priceCurrency: 'INR',
     price: (Number(product.price_paise || 0) / 100).toFixed(2),

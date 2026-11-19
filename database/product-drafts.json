@@ -13,6 +13,7 @@
     "price_paise": 19900,
     "compare_at_paise": 39900,
     "description": "Handmade crochet rakhi, sold individually. Choose the design you like.",
+    "keywords": ["handmade crochet rakhi India", "crochet rakhi online", "colourful handmade rakhi", "Raksha Bandhan yarn rakhi"],
     "style_options": [
       {
         "code": "pink-round",
@@ -97,6 +98,7 @@
     "price_paise": 16900,
     "compare_at_paise": 24900,
     "description": "Handmade crochet hair scrunchie. Colour and floral details vary by piece.",
+    "keywords": ["handmade floral scrunchie", "crochet hair scrunchie India", "yarn hair accessory"],
     "images": [
       "/static/assets/products/crochet-floral-scrunchie-1.webp",
       "/static/assets/products/crochet-floral-scrunchie-2.webp",
@@ -116,6 +118,7 @@
     "price_paise": 59900,
     "compare_at_paise": 99900,
     "description": "Handmade pink crochet dress for a Lord Krishna idol.",
+    "keywords": ["crochet dress for Laddu Gopal", "handmade Krishna idol dress", "pink Bal Gopal dress"],
     "images": [
       "/static/assets/products/pink-crochet-dress-1.webp"
     ],
@@ -131,6 +134,7 @@
     "price_paise": 99900,
     "compare_at_paise": 129900,
     "description": "Handmade crochet sling bag with a front flap and long strap. Choose a colour.",
+    "keywords": ["made to order crochet bag India", "handmade crochet sling bag", "colourful yarn crossbody bag"],
     "style_options": [
       {
         "code": "rust",
@@ -168,6 +172,7 @@
     "price_paise": 149900,
     "compare_at_paise": 199900,
     "description": "Handmade crochet handbag with a floral motif and pearl detail. Choose a colour.",
+    "keywords": ["handmade flower handbag India", "pearl chain crochet bag", "rose motif yarn handbag"],
     "style_options": [
       {
         "code": "pink",
@@ -216,6 +221,7 @@
     "price_paise": 169900,
     "compare_at_paise": 229900,
     "description": "Handmade round crochet doily. Choose Cream & Orange or Red & Gold.",
+    "keywords": ["handmade table doily India", "round yarn table mat", "crochet centerpiece mat"],
     "style_options": [
       {
         "code": "cream-orange",
@@ -247,6 +253,7 @@
     "price_paise": 49900,
     "compare_at_paise": 69900,
     "description": "Handmade crochet lotus flowers. Choose a set of 2, 3, or 4.",
+    "keywords": ["crochet lotus flower set", "handmade lotus flowers India", "everlasting yarn flower decor"],
     "price_options": [
       {
         "code": "set-2",
@@ -284,6 +291,7 @@
     "price_paise": 89900,
     "compare_at_paise": 119900,
     "description": "Handmade blue crochet pouch with a wrist loop.",
+    "keywords": ["handmade wristlet pouch", "blue crochet pouch India", "yarn wrist loop pouch"],
     "images": [
       "/static/assets/products/blue-crochet-pouch-1.webp"
     ],
@@ -299,6 +307,7 @@
     "price_paise": 119900,
     "compare_at_paise": 229900,
     "description": "Personalized handmade crochet name hanging. Enter the name you would like us to make.",
+    "keywords": ["personalised crochet name hanging India", "custom name door hanging", "handmade nursery name sign"],
     "badge": "New launch",
     "personalisation": {
       "label": "Name for the hanging"
@@ -318,6 +327,7 @@
     "price_paise": 169900,
     "compare_at_paise": 219900,
     "description": "Handmade colorful crochet mandala. Designs and colors may vary.",
+    "keywords": ["handmade crochet mandala India", "colourful yarn wall decor", "round fibre art decor"],
     "images": [
       "/static/assets/products/crochet-mandala-1.webp"
     ],
@@ -335,6 +345,7 @@
     "price_paise": 229900,
     "compare_at_paise": 279900,
     "description": "Handmade crochet handbag with pearl-chain detail. Photos show different views and shades.",
+    "keywords": ["pearl crochet handbag India", "handmade pink yarn bag", "pearl chain handmade purse"],
     "images": [
       "/static/assets/products/pink-pearl-crochet-handbag-1.webp",
       "/static/assets/products/pink-pearl-crochet-handbag-2.webp",
@@ -353,6 +364,7 @@
     "price_paise": 79900,
     "compare_at_paise": 119900,
     "description": "Handmade bouquet of white crochet lilies with green leaves.",
+    "keywords": ["crochet lily bouquet gift India", "white handmade flower bouquet", "everlasting lily bouquet"],
     "images": [
       "/static/assets/products/white-crochet-lily-bouquet-1.webp",
       "/static/assets/products/white-crochet-lily-bouquet-2.webp"
@@ -369,6 +381,7 @@
     "price_paise": 49900,
     "compare_at_paise": 79900,
     "description": "Handmade lotus crochet door hanging with Shubh lettering, beads, and hanging flowers.",
+    "keywords": ["Shubh lotus door hanging", "handmade festive door decor India", "lotus wall hanging"],
     "images": [
       "/static/assets/products/shubh-lotus-door-hanging-1.webp"
     ],
@@ -387,6 +400,7 @@
       "/static/assets/products/floral-crochet-toran-1.webp"
     ],
     "description": "Handmade floral crochet door toran with pink, cream and gold details.",
+    "keywords": ["handmade crochet toran for door", "floral door toran India", "pink cream festive door hanging"],
     "made_to_order": true
   },
   {
@@ -402,6 +416,7 @@
       "/static/assets/products/crochet-lotus-tealight-holder-1.webp"
     ],
     "description": "Pair of handmade lotus crochet holders. Use with LED or battery-operated tealights only.",
+    "keywords": ["crochet tealight holder pair", "lotus LED diya holder", "handmade festive table decor"],
     "made_to_order": true
   },
   {
@@ -417,6 +432,7 @@
       "/static/assets/products/pink-crochet-table-doily-1.webp"
     ],
     "description": "Handmade pink and gold crochet table doily. Vase and flowers are shown for styling only.",
+    "keywords": ["pink crochet table doily", "handmade vase mat India", "yarn table centerpiece"],
     "made_to_order": true
   }
 ]

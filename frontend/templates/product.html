@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}{{ product.name }} | Happy Knots{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/style.css?v=reviews-keywords-1">{% endblock %}
 {% block body %}
 {% include 'shop_header.html' %}
 <main class="wrap product-detail">
@@ -24,6 +25,27 @@
     <p class="detail-note">Made after you order. Estimated delivery: 10–15 days. Payment is cash on delivery. <a href="/shipping">Shipping policy</a></p>
   </div>
 </main>
+<section class="product-reviews wrap" id="reviews" aria-labelledby="reviewsTitle">
+  <div class="reviews-heading">
+    <div><span class="eyebrow">Verified purchases</span><h2 id="reviewsTitle">Customer reviews</h2></div>
+    {% if review_summary.count %}<p class="review-average"><strong>{{ review_summary.average }}</strong><span aria-label="{{ review_summary.average }} out of 5 stars">★</span><small>{{ review_summary.count }} {{ 'review' if review_summary.count == 1 else 'reviews' }}</small></p>{% endif %}
+  </div>
+  <div class="reviews-layout">
+    <div class="review-list">
+      {% for review in reviews %}<article class="review-card"><div class="review-meta"><strong>{{ review.display_name }}</strong><span class="verified-badge">Verified purchase</span></div><p class="review-stars" aria-label="{{ review.rating }} out of 5 stars">{{ review.stars }}</p><p>{{ review.comment }}</p><time>{{ review.created_at|truncate(10, true, '') }}</time></article>
+      {% else %}<div class="review-empty"><h3>No reviews yet</h3><p>Purchased this piece? Your experience can help another customer choose.</p></div>{% endfor %}
+    </div>
+    <aside class="review-form-card">
+      <h3>Review this piece</h3>
+      {% if review_submitted or review_state == 'pending' %}<p class="review-success" role="status">Thank you. Your review is awaiting approval.</p>
+      {% elif review_state == 'approved' %}<p>Your verified review is published above.</p>
+      {% elif review_state == 'hidden' %}<p>Your previous review is not currently published. Contact us if you need help.</p>
+      {% elif can_review %}<form action="/products/{{ product.id }}/reviews" method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><fieldset><legend>Your rating</legend><div class="rating-options">{% for rating in [5,4,3,2,1] %}<input id="rating{{ rating }}" name="rating" type="radio" value="{{ rating }}" required><label for="rating{{ rating }}" aria-label="{{ rating }} stars">★</label>{% endfor %}</div></fieldset><label for="reviewComment">Your review</label><textarea id="reviewComment" name="comment" required minlength="10" maxlength="1000" placeholder="What did you like about the product? How did the colour and finish look in person?"></textarea><small>10–1,000 characters. Your surname and email stay private.</small><button class="button">Submit review</button></form>
+      {% elif customer %}<p>You can review this product after an order containing it has been delivered.</p>
+      {% else %}<p>Only verified customers can post reviews.</p><a class="button secondary" href="/account/login?next={{ ('/products/' ~ product.id ~ '#reviews')|urlencode }}">Sign in to review</a>{% endif %}
+    </aside>
+  </div>
+</section>
 {% include 'bag.html' %}
 <script>const products={{ product_json|json_safe }};</script>
 <script src="/static/shop-motion.js?v=viewport-flip-1" defer></script>

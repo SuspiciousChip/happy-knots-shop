@@ -1,10 +1,11 @@
 {% extends 'base.html' %}
 {% block title %}Owner orders | Happy Knots{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/style.css?v=reviews-keywords-1">{% endblock %}
 {% block body %}
 <div class="owner-shell">
   <aside class="owner-sidebar">
     <a class="owner-brand" href="/owner">Happy Knots <span>Owner</span></a>
-    <nav aria-label="Owner navigation"><a class="active" href="/owner">Overview</a><a href="#orders">Orders</a><a href="#products">Products</a><a href="#security">Security</a><a href="/shop">View shop</a><a href="/account">My account</a></nav>
+    <nav aria-label="Owner navigation"><a class="active" href="/owner">Overview</a><a href="#orders">Orders</a><a href="#products">Products</a><a href="#reviews">Reviews</a><a href="#security">Security</a><a href="/shop">View shop</a><a href="/account">My account</a></nav>
     <div class="owner-identity"><small>Signed in as</small><strong>{{ customer.email }}</strong><form action="/account/logout" method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Sign out</button></form></div>
   </aside>
   <main class="owner-main">
@@ -42,6 +43,10 @@
         <div class="owner-product-actions"><button class="button" id="ownerProductSubmit">List product</button><p id="ownerProductMessage" role="status"></p></div>
       </form>
       <div class="owner-listed-products"><h3>Manage listed products</h3><div class="owner-product-list">{% for product in recent_products %}<article><img src="{{ product.image }}" alt=""><span><strong>{{ product.name }}</strong><small>{{ product.category }} · ₹{{ product.price_paise|money }}</small></span><span class="owner-product-links"><a class="owner-product-edit" href="/owner/products/{{ product.id }}/edit">Edit</a><a class="owner-product-view" href="/products/{{ product.id }}">View</a></span></article>{% endfor %}</div></div>
+    </section>
+    <section class="owner-panel" id="reviews">
+      <div class="owner-toolbar"><div><span class="eyebrow">Customer feedback</span><h2>Product reviews</h2><p>Approve genuine feedback before it appears on a product page.</p></div></div>
+      {% if product_reviews %}<div class="owner-review-list">{% for review in product_reviews %}<article><div class="owner-review-heading"><div><strong>{{ review.product_name }}</strong><small>{{ review.display_name }} · {{ review.rating }}/5 · {{ 'Verified purchase' if review.verified_purchase else 'Unverified' }}</small></div><span class="owner-status status-{{ 'delivered' if review.status == 'approved' else ('cancelled' if review.status == 'hidden' else 'new') }}">{{ review.status|title }}</span></div><p>{{ review.comment }}</p><div class="owner-review-actions"><a href="/products/{{ review.product_id }}#reviews">View product</a>{% if review.status != 'approved' %}<form action="/owner/reviews/{{ review._id }}/status" method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="status" value="approved"><button class="button">Approve</button></form>{% endif %}{% if review.status != 'hidden' %}<form action="/owner/reviews/{{ review._id }}/status" method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="status" value="hidden"><button class="button secondary">Hide</button></form>{% endif %}</div></article>{% endfor %}</div>{% else %}<div class="owner-empty"><h3>No reviews yet</h3><p>Verified customer reviews will appear here for approval.</p></div>{% endif %}
     </section>
     <section class="owner-panel" id="security">
       <div class="owner-toolbar"><div><span class="eyebrow">Account protection</span><h2>Security activity</h2><p>Recent owner sign-ins, verification attempts, and management changes.</p></div></div>

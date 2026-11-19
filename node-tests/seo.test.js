@@ -61,6 +61,14 @@ test('structured data identifies the business, website, FAQs and product', () =>
   assert.equal(faqSchema()['@type'], 'FAQPage');
   assert.equal(productSchema(product)['@type'], 'Product');
   assert.equal(productSchema(product).offers.price, '899.00');
+  const withReviews = productSchema(product, {
+    summary: { count: 1, average: 5 },
+    reviews: [{ display_name: 'Asha K.', rating: 5, comment: 'Beautifully finished and carefully packed.', created_at: '2026-11-19T10:00:00.000Z' }]
+  });
+  assert.equal(withReviews.aggregateRating.ratingValue, 5);
+  assert.equal(withReviews.aggregateRating.reviewCount, 1);
+  assert.equal(withReviews.review[0].reviewBody, 'Beautifully finished and carefully packed.');
+  assert.equal(productSchema(product).aggregateRating, undefined);
   assert.equal(breadcrumbSchema(product)['@type'], 'BreadcrumbList');
 });
 

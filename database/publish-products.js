@@ -22,7 +22,7 @@ function build(row) {
   assert(variants.every(v => v.code && v.label && (!v.image || imageExists(v.image)) && (!v.price_paise || Number.isSafeInteger(v.price_paise))), `Invalid option: ${row.sku}`);
   const resolvedVariants = variants.map(v => ({ code: v.code, label: v.label, image: v.image || row.images[0], price_paise: v.price_paise || row.price_paise, compare_at_paise: v.compare_at_paise || row.compare_at_paise }));
   assert(resolvedVariants.every(v => v.compare_at_paise > v.price_paise), `Invalid option regular price: ${row.sku}`);
-  return { sku: row.sku, name: row.name, category: row.category, tags: [row.category], description: row.description, image: row.images[0], images: row.images, variants: resolvedVariants, price_paise: row.price_paise, compare_at_paise: row.compare_at_paise, personalisation: row.personalisation || null, badge: row.badge || null, made_to_order: !!row.made_to_order, active: 1 };
+  return { sku: row.sku, name: row.name, category: row.category, tags: [row.category], keywords: Array.isArray(row.keywords) ? row.keywords : [], description: row.description, image: row.images[0], images: row.images, variants: resolvedVariants, price_paise: row.price_paise, compare_at_paise: row.compare_at_paise, personalisation: row.personalisation || null, badge: row.badge || null, made_to_order: !!row.made_to_order, active: 1 };
 }
 const catalog = drafts.map(build);
 assert(new Set(catalog.map(p => p.sku)).size === catalog.length, 'Duplicate SKU');

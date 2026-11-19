@@ -23,6 +23,7 @@ import { ownerProductDraft, ownerProductUpdateDraft } from './owner-product.js';
 import { orderAnalytics } from './analytics.js';
 import { decryptValue, encryptValue } from './secure-data.js';
 import { generateTotpSecret, totpUri, verifyTotp } from './owner-mfa.js';
+import { reviewDraft, reviewerDisplayName, reviewSummary } from './reviews.js';
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, SITE_UPDATED, CONTACT_EMAIL, FAQS, seoFor, organizationSchema, websiteSchema, faqSchema, productSchema, breadcrumbSchema, robotsText, sitemapXml, rssXml, llmsText } from './seo.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
@@ -63,6 +64,7 @@ const categories = database.collection('customer_totals');
 const testPayments = database.collection('razorpay_test_payments');
 const ownerMfa = database.collection('owner_mfa');
 const ownerAudit = database.collection('owner_security_audit');
+const reviews = database.collection('product_reviews');
 const productImages = new GridFSBucket(database, { bucketName: 'product_images' });
 const catalogDrafts = JSON.parse(fs.readFileSync(path.join(projectRoot, 'database/product-drafts.json'), 'utf8'));
 const env = nunjucks.configure(path.join(projectRoot, 'frontend', 'templates'), { autoescape: true, noCache: process.env.NODE_ENV !== 'production' });
@@ -177,7 +179,7 @@ async function nextId(name, session) {
 function catalogProduct(row) {
   const variants = row.price_options || row.style_options || [];
   return {
-    sku: row.sku, name: row.name, category: row.category, tags: [row.category], description: row.description,
+    sku: row.sku, name: row.name, category: row.category, tags: [row.category], keywords: Array.isArray(row.keywords) ? row.keywords : [], description: row.description,
     image: row.images[0], images: row.images,
     variants: variants.map(v => ({ code: v.code, label: v.label, image: v.image || row.images[0], price_paise: v.price_paise || row.price_paise, compare_at_paise: v.compare_at_paise || row.compare_at_paise })),
     price_paise: row.price_paise, compare_at_paise: row.compare_at_paise,
@@ -223,6 +225,13 @@ async function publishInitialCatalog() {
         await products.updateOne({ sku: row.sku }, { $set: update, $inc: { version: 1 } }, { session: transaction });
         await products.updateOne({ sku: 'gold-red-crochet-doily' }, { $set: { active: 0 }, $inc: { version: 1 } }, { session: transaction });
         await migration.insertOne({ _id: doilyMarker, state: 'READY', created_at: now() }, { session: transaction });
+      }
+      const keywordMarker = 'catalog-search-keywords-2026-11-19';
+      if (!await migration.findOne({ _id: keywordMarker }, { session: transaction })) {
+        for (const row of catalogDrafts) {
+          await products.updateOne({ sku: row.sku }, { $set: { keywords: Array.isArray(row.keywords) ? row.keywords : [] } }, { session: transaction });
+        }
+        await migration.insertOne({ _id: keywordMarker, state: 'READY', created_at: now() }, { session: transaction });
       }
     });
   } finally { await transaction.endSession(); }
@@ -289,7 +298,40 @@ app.get('/products/:id', wrap(async (req, res) => {
   ]);
   if (!product) return res.sendStatus(404);
   const publicItem = publicProduct(product);
-  render(res, 'product.html', { product: publicItem, product_json: listing.map(publicProduct), structured_data: schemaGraph(organizationSchema(), productSchema(publicItem), breadcrumbSchema(publicItem)) });
+  const customer = res.locals.customer;
+  const [publishedReviews, customerReview, deliveredOrder] = await Promise.all([
+    reviews.find({ product_id: id, status: 'approved' }).project({ rating: 1, comment: 1, display_name: 1, created_at: 1 }).sort({ created_at: -1 }).limit(100).toArray(),
+    customer ? reviews.findOne({ product_id: id, customer_sub: customer.sub }, { projection: { status: 1 } }) : null,
+    customer ? orders.findOne({ customer_sub: customer.sub, status: 'delivered', 'items.product_id': id }, { projection: { id: 1 } }) : null
+  ]);
+  const summary = reviewSummary(publishedReviews);
+  const publicReviews = publishedReviews.map(review => ({ ...review, stars: '★'.repeat(review.rating) }));
+  render(res, 'product.html', {
+    product: publicItem, product_json: listing.map(publicProduct), reviews: publicReviews, review_summary: summary,
+    can_review: !!deliveredOrder && !customerReview, review_state: customerReview?.status || '', review_submitted: req.query.review === 'pending',
+    structured_data: schemaGraph(organizationSchema(), productSchema(publicItem, { reviews: publishedReviews, summary }), breadcrumbSchema(publicItem))
+  });
+}));
+app.post('/products/:id/reviews', customerOnly, csrf, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  const draft = reviewDraft(req.body);
+  if (!Number.isSafeInteger(id) || id < 1 || !draft) return errorPage(res, 'Check your review', 'Choose a rating and write at least 10 characters about the product.', 400);
+  const [product, deliveredOrder] = await Promise.all([
+    products.findOne({ id, active: 1 }, { projection: { id: 1, name: 1 } }),
+    orders.findOne({ customer_sub: res.locals.customer.sub, status: 'delivered', 'items.product_id': id }, { projection: { id: 1, customer_name: 1 } })
+  ]);
+  if (!product || !deliveredOrder) return res.sendStatus(403);
+  try {
+    await reviews.insertOne({
+      product_id: id, product_name: product.name, customer_sub: res.locals.customer.sub,
+      display_name: reviewerDisplayName(deliveredOrder.customer_name), rating: draft.rating, comment: draft.comment,
+      verified_purchase: true, order_id: deliveredOrder.id, status: 'pending', created_at: now()
+    });
+  } catch (error) {
+    if (error.code === 11000) return errorPage(res, 'Review already received', 'You have already reviewed this product.', 409);
+    throw error;
+  }
+  res.redirect(`/products/${id}?review=pending#reviews`);
 }));
 app.get('/checkout', customerOnly, wrap(async (req, res) => {
   const [profile, listing] = await Promise.all([
@@ -587,7 +629,7 @@ app.get('/owner', ownerOnly, wrap(async (req, res) => {
   const selectedStatus = isOrderStatus(req.query.status) ? req.query.status : '';
   const filter = selectedStatus ? { status: selectedStatus } : {};
   if (Number.isSafeInteger(before) && before > 0) filter.id = { $lt: before };
-  const [history, totalOrders, openOrders, deliveredOrders, orderValue, analyticsRows, listedProducts, securityEvents] = await Promise.all([
+  const [history, totalOrders, openOrders, deliveredOrders, orderValue, analyticsRows, listedProducts, securityEvents, productReviews] = await Promise.all([
     orders.find(filter).project({ id: 1, created_at: 1, status: 1, customer_name: 1, email: 1, total_paise: 1, subtotal_paise: 1 }).sort({ id: -1 }).limit(51).toArray(),
     orders.countDocuments(),
     orders.countDocuments({ status: { $nin: ['delivered', 'cancelled'] } }),
@@ -595,7 +637,8 @@ app.get('/owner', ownerOnly, wrap(async (req, res) => {
     orders.aggregate([{ $match: { status: { $ne: 'cancelled' } } }, { $group: { _id: null, value: { $sum: { $ifNull: ['$total_paise', '$subtotal_paise'] } } } }]).next(),
     orders.find({ created_at: { $gte: new Date(Date.now() - 370 * 86400000).toISOString() } }).project({ created_at: 1, status: 1, total_paise: 1, subtotal_paise: 1 }).toArray(),
     products.find({ active: 1 }).project({ id: 1, name: 1, image: 1, price_paise: 1, compare_at_paise: 1, category: 1 }).sort({ id: -1 }).limit(100).toArray(),
-    ownerAudit.find({}).project({ event: 1, owner_email: 1, details: 1, created_at: 1 }).sort({ _id: -1 }).limit(50).toArray()
+    ownerAudit.find({}).project({ event: 1, owner_email: 1, details: 1, created_at: 1 }).sort({ _id: -1 }).limit(50).toArray(),
+    reviews.find({}).project({ product_id: 1, product_name: 1, display_name: 1, rating: 1, comment: 1, verified_purchase: 1, status: 1, created_at: 1 }).sort({ status: -1, created_at: -1 }).limit(100).toArray()
   ]);
   const page = history.slice(0, 50);
   render(res, 'owner.html', {
@@ -603,8 +646,15 @@ app.get('/owner', ownerOnly, wrap(async (req, res) => {
     next_cursor: history.length > 50 ? page.at(-1).id : null,
     overview: { total_orders: totalOrders, open_orders: openOrders, delivered_orders: deliveredOrders, order_value_paise: orderValue?.value || 0 },
     analytics: orderAnalytics(analyticsRows), categories: tagNames, recent_products: listedProducts,
-    listed_product_id: Number(req.query.listed) || null, security_events: securityEvents
+    listed_product_id: Number(req.query.listed) || null, security_events: securityEvents, product_reviews: productReviews
   });
+}));
+app.post('/owner/reviews/:id/status', ownerOnly, csrf, wrap(async (req, res) => {
+  if (!ObjectId.isValid(req.params.id) || !['approved', 'hidden'].includes(req.body.status)) return res.sendStatus(400);
+  const result = await reviews.updateOne({ _id: new ObjectId(req.params.id) }, { $set: { status: req.body.status, moderated_at: now(), moderated_by: res.locals.customer.email } });
+  if (!result.matchedCount) return res.sendStatus(404);
+  await auditOwner('review_moderated', req, { review_id: req.params.id, status: req.body.status }).catch(error => console.error('Owner audit failed', error));
+  res.redirect('/owner#reviews');
 }));
 app.post('/owner/products', ownerOnly, express.json({ limit: '28mb' }), csrf, wrap(async (req, res) => {
   const draft = ownerProductDraft(req.body, tagNames);
@@ -723,7 +773,8 @@ export async function init() {
     testPayments.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
     loginLimits.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
     ownerMfa.createIndex({ email: 1 }, { unique: true }),
-    ownerAudit.createIndex({ created_at: -1 }), ownerAudit.createIndex({ owner_email: 1, created_at: -1 })]);
+    ownerAudit.createIndex({ created_at: -1 }), ownerAudit.createIndex({ owner_email: 1, created_at: -1 }),
+    reviews.createIndex({ product_id: 1, status: 1, created_at: -1 }), reviews.createIndex({ product_id: 1, customer_sub: 1 }, { unique: true })]);
   await publishInitialCatalog();
   const missingImageOrders = await orders.find({ items: { $elemMatch: { image: { $exists: false } } } }).project({ id: 1, items: 1 }).toArray();
   if (missingImageOrders.length) {
