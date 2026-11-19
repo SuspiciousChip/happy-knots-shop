@@ -25,6 +25,7 @@ import { decryptValue, encryptValue } from './secure-data.js';
 import { generateTotpSecret, totpUri, verifyTotp } from './owner-mfa.js';
 import { reviewDraft, reviewerDisplayName, reviewSummary } from './reviews.js';
 import { RETURN_REASONS, RETURN_RESOLUTIONS, RETURN_STATUSES, returnRequestDraft } from './returns.js';
+import { PARTIAL_COD_FEE_PAISE, PARTIAL_COD_PERCENT, paymentPlanTotals } from './payment-plans.js';
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, SITE_UPDATED, CONTACT_EMAIL, FAQS, JOURNAL_PATH, seoFor, organizationSchema, websiteSchema, faqSchema, productSchema, breadcrumbSchema, robotsText, sitemapXml, rssXml, googleProductsXml, llmsText } from './seo.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
@@ -204,9 +205,12 @@ async function finaliseOnlinePayment(paymentRecord, razorpayPayment, changedBy =
         address_line1: current.customer.address_line1, address_line2: current.customer.address_line2,
         landmark: current.customer.landmark, city: current.customer.city, state: current.customer.state,
         pincode: current.customer.pincode, subtotal_paise: current.subtotal_paise,
-        shipping_paise: current.shipping_paise, total_paise: current.amount_paise, status: 'new',
+        shipping_paise: current.shipping_paise, partial_cod_fee_paise: current.partial_cod_fee_paise || 0,
+        total_paise: current.payable_total_paise || current.amount_paise, balance_due_paise: current.balance_due_paise || 0,
+        online_paid_paise: current.amount_paise, status: 'new',
         status_history: [{ status: 'new', changed_at: createdAt, changed_by: changedBy }],
-        payment_method: 'razorpay', payment_status: 'paid', razorpay_order_id: current.razorpay_order_id,
+        payment_method: current.payment_plan === 'partial_cod' ? 'partial_cod' : 'razorpay',
+        payment_status: current.payment_plan === 'partial_cod' ? 'partially_paid' : 'paid', razorpay_order_id: current.razorpay_order_id,
         razorpay_payment_id: razorpayPayment.id, paid_at: createdAt, created_at: createdAt, items: current.items
       }, { session: transaction });
       const quantities = new Map();
@@ -217,8 +221,9 @@ async function finaliseOnlinePayment(paymentRecord, razorpayPayment, changedBy =
           { $inc: { stock: -quantity, version: 1, units: quantity, sales_revenue: revenue } }, { session: transaction });
         if (result.matchedCount !== 1) throw Object.assign(new Error('A paid item is no longer available'), { status: 409 });
       }
-      await stats.updateOne({ _id: 'shop' }, { $inc: { orders: 1, revenue: current.amount_paise } }, { upsert: true, session: transaction });
-      await categories.updateOne({ email: current.customer.email }, { $set: { customer_name: current.customer.name }, $inc: { orders: 1, spent: current.amount_paise } }, { upsert: true, session: transaction });
+      const orderValue = current.payable_total_paise || current.amount_paise;
+      await stats.updateOne({ _id: 'shop' }, { $inc: { orders: 1, revenue: orderValue } }, { upsert: true, session: transaction });
+      await categories.updateOne({ email: current.customer.email }, { $set: { customer_name: current.customer.name }, $inc: { orders: 1, spent: orderValue } }, { upsert: true, session: transaction });
       const completed = await onlinePayments.updateOne({ _id: current._id, status: 'pending' }, {
         $set: { status: 'paid', order_id: orderId, razorpay_payment_id: razorpayPayment.id, paid_at: createdAt },
         $unset: { expires_at: '' }
@@ -315,7 +320,8 @@ app.get('/google-products.xml', wrap(async (_req, res) => {
 }));
 app.get(['/llms.txt', '/llms-full.txt'], wrap(async (req, res) => {
   const listing = (await catalog()).map(publicProduct);
-  res.type('text/plain').set('Cache-Control', 'public, max-age=3600').send(llmsText(listing, req.path === '/llms-full.txt'));
+  const text = llmsText(listing, req.path === '/llms-full.txt').replace('securely online through Razorpay or by cash on delivery', 'in full through Razorpay or by Partial COD. Partial COD requires a 30% online advance and adds a ₹90 charge; the remaining 70% is payable on delivery');
+  res.type('text/plain').set('Cache-Control', 'public, max-age=3600').send(text);
 }));
 app.get('/.well-known/ai.txt', (_req, res) => res.type('text/plain').set('Cache-Control', 'public, max-age=3600').send(`Site: ${SITE_URL}\nName: ${SITE_NAME}\nSummary: ${SITE_DESCRIPTION}\nSitemap: ${SITE_URL}/sitemap.xml\nLLMs: ${SITE_URL}/llms.txt\nAI training: allowed for public product and information pages; private customer and owner pages are disallowed.\n`));
 app.get('/ai/summary.json', (_req, res) => res.set('Cache-Control', 'public, max-age=3600').json({ name: SITE_NAME, url: SITE_URL, description: SITE_DESCRIPTION, founder: 'Rakhi Dixit', updated: SITE_UPDATED }));
@@ -324,7 +330,7 @@ app.get('/ai/service.json', (_req, res) => res.set('Cache-Control', 'public, max
   name: SITE_NAME,
   description: 'Made-to-order handmade crochet products created and delivered across India.',
   capabilities: ['Handmade crochet gifts', 'Personalised name hangings', 'Crochet bags and accessories', 'Crochet flowers and home decor'],
-  areaServed: 'India', delivery: '10–15 days', payment: 'Razorpay online payment or cash on delivery', contact: CONTACT_EMAIL
+  areaServed: 'India', delivery: '10–15 days', payment: 'Razorpay full online payment or Partial COD (+₹90)', contact: CONTACT_EMAIL
 }));
 app.get('/media/products/:id', wrap(async (req, res) => {
   if (!ObjectId.isValid(req.params.id)) return res.sendStatus(404);
@@ -403,7 +409,7 @@ app.get('/checkout', customerOnly, wrap(async (req, res) => {
     customers.findOne({ _id: res.locals.customer.sub }, { projection: { addresses: 1 } }),
     catalog()
   ]);
-  render(res, 'checkout.html', { profile: { addresses: (profile?.addresses || []).filter(isCompleteAddress) }, product_json: listing.map(publicProduct), checkout_token: sign(random()), shipping_threshold_paise: FREE_SHIPPING_THRESHOLD_PAISE, standard_shipping_paise: STANDARD_SHIPPING_PAISE, razorpay_live_checkout: livePaymentsReady(), razorpay_test_checkout: testPaymentsReady() });
+  render(res, 'checkout.html', { profile: { addresses: (profile?.addresses || []).filter(isCompleteAddress) }, product_json: listing.map(publicProduct), checkout_token: sign(random()), shipping_threshold_paise: FREE_SHIPPING_THRESHOLD_PAISE, standard_shipping_paise: STANDARD_SHIPPING_PAISE, partial_cod_fee_paise: PARTIAL_COD_FEE_PAISE, partial_cod_percent: PARTIAL_COD_PERCENT, razorpay_live_checkout: livePaymentsReady(), razorpay_test_checkout: testPaymentsReady() });
 }));
 app.post('/payments/test/start', testPaymentsOnly, customerOnly, csrf, wrap(async (req, res) => {
   if (!unsign(req.body.checkout_token)) return res.sendStatus(400);
@@ -463,8 +469,10 @@ app.post('/payments/razorpay/start', livePaymentsOnly, customerOnly, csrf, wrap(
   if (!items) return errorPage(res, 'Bag changed', 'An item is no longer available in that quantity. Please review your bag.', 409);
   const subtotal = items.reduce((sum, item) => sum + item.unit_price_paise * item.quantity, 0);
   const shipping = shippingPaise(subtotal);
-  const amountPaise = subtotal + shipping;
-  const receiptKey = digest(req.body.checkout_token);
+  const paymentPlan = paymentPlanTotals(subtotal + shipping, String(req.body.payment_plan || ''));
+  if (!paymentPlan) return res.sendStatus(400);
+  const amountPaise = paymentPlan.online_paise;
+  const receiptKey = digest(`${req.body.checkout_token}:${paymentPlan.plan}`);
   const previous = await onlinePayments.findOne({ checkout_receipt_key: receiptKey, customer_sub: res.locals.customer.sub, status: 'pending' });
   if (previous) return res.redirect(`/payments/razorpay/${previous.public_token}`);
   const token = random();
@@ -479,7 +487,9 @@ app.post('/payments/razorpay/start', livePaymentsOnly, customerOnly, csrf, wrap(
   await onlinePayments.insertOne({
     _id: digest(token), public_token: publicToken, checkout_receipt_key: receiptKey,
     customer_sub: res.locals.customer.sub, customer, items, subtotal_paise: subtotal,
-    shipping_paise: shipping, amount_paise: amountPaise, razorpay_order_id: razorpayOrder.id,
+    shipping_paise: shipping, amount_paise: amountPaise, payment_plan: paymentPlan.plan,
+    partial_cod_fee_paise: paymentPlan.partial_cod_fee_paise, balance_due_paise: paymentPlan.balance_due_paise,
+    payable_total_paise: paymentPlan.payable_total_paise, razorpay_order_id: razorpayOrder.id,
     status: 'pending', created_at: now(), expires_at: new Date(Date.now() + 7 * 86400000)
   });
   res.cookie('hk_payment_token', sign(token), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 7 * 86400000 });
@@ -528,7 +538,9 @@ app.post('/webhooks/razorpay', express.raw({ type: 'application/json', limit: '5
   if (eventId) await razorpayWebhookEvents.updateOne({ _id: eventId }, { $setOnInsert: { event: event.event, payment_id: entity.id, received_at: new Date() } }, { upsert: true });
   res.sendStatus(204);
 }));
-app.post('/orders', customerOnly, csrf, wrap(async (req, res) => {
+app.post('/orders', customerOnly, csrf, (_req, res) => errorPage(res, 'Payment option changed', 'Cash on delivery is no longer available. Choose full online payment or Partial COD (+₹90) at checkout.', 410));
+/* Legacy COD order creation is intentionally disabled.
+app.post('/orders-legacy-disabled', customerOnly, csrf, wrap(async (req, res) => {
   const profile = await customers.findOne({ _id: res.locals.customer.sub });
   const address = profile?.addresses?.find(a => a.address_id === req.body.address_id);
   if (!isCompleteAddress(address)) return errorPage(res, 'Complete delivery address required', 'Save and select an address with a city, state and six-digit PIN code before placing an order.', 400);
@@ -582,7 +594,7 @@ app.post('/orders', customerOnly, csrf, wrap(async (req, res) => {
   } finally { await transaction.endSession(); }
   res.cookie('hk_checkout_success', sign(String(orderId)), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 60000 });
   res.redirect(`/account/orders/${orderId}`);
-}));
+})); */
 
 const authReady = () => ['COGNITO_ISSUER', 'COGNITO_CLIENT_ID', 'COGNITO_CLIENT_SECRET', 'COGNITO_DOMAIN', 'APP_BASE_URL'].every(k => process.env[k]);
 let oidcConfigPromise;

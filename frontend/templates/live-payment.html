@@ -5,7 +5,7 @@
 <main class="test-payment-page live-payment-page">
   <span class="eyebrow">Secure online payment</span>
   <h1>Complete your payment.</h1>
-  <p>Order total: <strong>₹{{ payment.amount_paise|money }}</strong></p>
+  {% if payment.payment_plan == 'partial_cod' %}<p>Partial COD advance and charge due now: <strong>₹{{ payment.amount_paise|money }}</strong></p><p>Remaining amount payable on delivery: <strong>₹{{ payment.balance_due_paise|money }}</strong></p>{% else %}<p>Order total: <strong>₹{{ payment.amount_paise|money }}</strong></p>{% endif %}
   <p>Your order is created only after Razorpay confirms that the payment has been captured.</p>
   <button class="button" id="payOnline" data-key="{{ key_id }}" data-order-id="{{ payment.razorpay_order_id }}" data-amount="{{ payment.amount_paise }}" data-name="{{ payment.customer.name }}" data-email="{{ payment.customer.email }}" data-contact="{{ payment.customer.phone }}">Continue to Razorpay</button>
   <p class="payment-security-note">Payments are processed by Razorpay. Happy Knots does not receive or store your card, UPI PIN or banking credentials.</p>

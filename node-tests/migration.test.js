@@ -108,10 +108,10 @@ test('customer shop, catalog, product, checkout, and account templates render', 
   assert.doesNotMatch(checkoutPage, /Open Razorpay test checkout/);
   const testCheckout = env.render('checkout.html', { ...base, checkout_token: 'token', shipping_threshold_paise: 100000, standard_shipping_paise: 8000, razorpay_test_checkout: true });
   assert.match(testCheckout, /Open Razorpay test checkout/);
-  assert.match(testCheckout, /₹1 demo/);
+  assert.match(testCheckout, /No real money or shop order is created/);
   const liveCheckout = env.render('checkout.html', { ...base, checkout_token: 'token', shipping_threshold_paise: 100000, standard_shipping_paise: 8000, razorpay_live_checkout: true });
-  assert.match(liveCheckout, /Pay securely online/);
-  assert.match(liveCheckout, /Place cash-on-delivery order/);
+  assert.match(liveCheckout, /Pay fully online/);
+  assert.match(liveCheckout, /Partial COD \(\+₹90\)/);
   const livePayment = env.render('live-payment.html', { ...base, payment: { amount_paise: 49900, razorpay_order_id: 'order_live', customer: { name: 'Asha', email: 'buyer@example.com', phone: '9876543210' } }, token: 'live-token', key_id: 'rzp_live_example' });
   assert.match(livePayment, /Continue to Razorpay/);
   assert.doesNotMatch(livePayment, /live-secret/);

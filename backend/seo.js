@@ -9,7 +9,7 @@ export const JOURNAL_PATH = '/journal/handmade-crochet-gift-guide';
 export const FAQS = [
   { question: 'Are The Happy Knots products handmade?', answer: 'Yes. Rakhi Dixit makes every crochet piece by hand after the customer places an order.' },
   { question: 'How long does delivery take?', answer: 'Made-to-order products are usually delivered within 10–15 days.' },
-  { question: 'How can I pay for my order?', answer: 'Choose secure online payment through Razorpay or cash on delivery at checkout.' },
+  { question: 'How can I pay for my order?', answer: 'Choose full online payment through Razorpay or Partial COD. Partial COD requires a 30% online advance, adds a ₹90 charge, and leaves the remaining 70% payable on delivery.' },
   { question: 'How much does shipping cost?', answer: 'Shipping is free for orders of ₹1,000 or more. Orders below ₹1,000 have an ₹80 shipping charge.' }
 ];
 

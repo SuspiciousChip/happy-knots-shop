@@ -250,6 +250,7 @@ body{overflow-x:clip}
 .test-payment-button{display:block;margin-top:14px;background:var(--gold);border-color:var(--gold)}
 .test-payment-note{font-size:13px;color:#5b6a5e}
 .online-payment-button{display:block;width:100%;margin:14px 0 10px;background:var(--gold);border-color:var(--gold);color:#173f35}
+.payment-options{display:grid;gap:12px;margin:20px 0}.payment-choice{display:flex;align-items:flex-start;gap:14px;border:1px solid #c9d0c6;background:var(--paper);padding:18px;cursor:pointer}.payment-choice:has(input:checked){border-color:var(--green);box-shadow:inset 3px 0 var(--green)}.payment-choice input{margin-top:3px;accent-color:var(--green)}.payment-choice strong,.payment-choice small{display:block}.payment-choice small{margin-top:6px;color:#5e6e65;line-height:1.5}.partial-cod-preview{background:#f1eadc;padding-inline:10px}.partial-cod-preview[hidden]{display:none}
 .cod-payment-button{display:block;width:100%;margin-top:14px}
 .payment-security-note{font-size:13px;color:#5b6a5e}
 .test-payment-page{width:min(100% - 40px,680px);margin:clamp(60px,10vw,140px) auto;background:var(--paper);padding:clamp(28px,5vw,60px)}

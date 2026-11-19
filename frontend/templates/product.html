@@ -23,7 +23,7 @@
     <div class="tag-list">{% for tag in product.tags %}<a href="/shop?category={{ tag|urlencode }}">{{ tag }}</a>{% endfor %}</div>
     <p>{{ 'Made to order' if product.made_to_order else ('Available' if product.stock > 0 else 'Sold out') }}</p>
     <button class="button" data-add="{{ product.id }}" {% if product.stock < 1 %}disabled{% endif %}>Add to bag</button>
-    <p class="detail-note">Made after you order. Estimated delivery: 10–15 days. Payment is cash on delivery. <a href="/shipping">Shipping policy</a></p>
+    <p class="detail-note">Made after you order. Estimated delivery: 10–15 days. Pay fully online or choose Partial COD (+₹90). <a href="/shipping">Shipping policy</a></p>
   </div>
 </main>
 <section class="product-reviews wrap" id="reviews" aria-labelledby="reviewsTitle">
