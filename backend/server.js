@@ -241,10 +241,18 @@ const tagNames = ['Personal Accessories & Clothing', 'Door Hangings', 'Wall Hang
 const tagsFor = p => Array.isArray(p.tags) ? p.tags.filter(t => tagNames.includes(t)) : tagNames.includes(p.category) ? [p.category] : [];
 const publicProduct = p => ({ id: p.id, name: p.name, tags: tagsFor(p), keywords: Array.isArray(p.keywords) ? p.keywords : [], description: p.description, price_paise: p.price_paise, compare_at_paise: p.compare_at_paise > p.price_paise ? p.compare_at_paise : null, discount_percent: discountPercent(p.price_paise, p.compare_at_paise), image: p.image, images: Array.isArray(p.images) ? p.images : [], variants: Array.isArray(p.variants) ? p.variants.map(v => ({ ...v, discount_percent: discountPercent(v.price_paise, v.compare_at_paise) })) : [], personalisation: p.personalisation || null, badge: p.badge || null, made_to_order: !!p.made_to_order, stock: p.stock });
 const schemaGraph = (...nodes) => ({ '@context': 'https://schema.org', '@graph': nodes });
-app.get('/sitemap.xml', wrap(async (_req, res) => {
-  const listing = (await catalog()).map(publicProduct);
-  res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(sitemapXml(listing));
-}));
+let cachedSitemap = sitemapXml([]);
+app.get('/sitemap.xml', async (_req, res) => {
+  try {
+    cachedSitemap = sitemapXml((await catalog()).map(publicProduct));
+  } catch (error) {
+    console.error('Serving cached sitemap after catalogue lookup failed', error?.message || error);
+  }
+  res.type('application/xml').set({
+    'Cache-Control': 'public, max-age=300, stale-while-revalidate=86400',
+    'X-Content-Type-Options': 'nosniff'
+  }).send(cachedSitemap);
+});
 app.get('/feed.xml', wrap(async (_req, res) => {
   const listing = (await catalog()).map(publicProduct);
   res.type('application/rss+xml').set('Cache-Control', 'public, max-age=3600').send(rssXml(listing));
