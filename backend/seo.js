@@ -4,6 +4,7 @@ export const SITE_DESCRIPTION = 'Shop handmade crochet gifts, yarn flowers, bags
 export const SITE_UPDATED = '2026-11-19';
 export const CONTACT_EMAIL = 'h4appy.knots.official@gmail.com';
 export const INSTAGRAM_URL = 'https://www.instagram.com/the_happy_knots_by_rakhi/';
+export const JOURNAL_PATH = '/journal/handmade-crochet-gift-guide';
 
 export const FAQS = [
   { question: 'Are The Happy Knots products handmade?', answer: 'Yes. Rakhi Dixit makes every crochet piece by hand after the customer places an order.' },
@@ -12,7 +13,7 @@ export const FAQS = [
   { question: 'How much does shipping cost?', answer: 'Shipping is free for orders of ₹1,000 or more. Orders below ₹1,000 have an ₹80 shipping charge.' }
 ];
 
-const absoluteUrl = value => !value ? `${SITE_URL}/static/assets/happy-knots-logo.png` : value.startsWith('http') ? value : `${SITE_URL}${value}`;
+const absoluteUrl = value => !value ? `${SITE_URL}/static/assets/happy-knots-logo.webp` : value.startsWith('http') ? value : `${SITE_URL}${value}`;
 const xml = value => String(value ?? '').replace(/[<>&"']/g, character => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' })[character]);
 
 export function seoFor(pathname, data = {}) {
@@ -46,6 +47,10 @@ export function seoFor(pathname, data = {}) {
   } else if (pathname === '/terms') {
     title = 'Terms and Conditions | The Happy Knots';
     description = 'Read the terms for ordering handmade crochet products from The Happy Knots.';
+  } else if (pathname === JOURNAL_PATH) {
+    title = 'Handmade Crochet Gift Guide for Every Occasion | The Happy Knots';
+    description = 'Find thoughtful handmade crochet gift ideas in India, from personalised name hangings and yarn bouquets to bags, rakhis and festive home decor.';
+    image = '/static/assets/featured/lotus-crochet-flowers.webp';
   } else if (product) {
     title = `${product.name} | The Happy Knots`;
     description = String(product.description || `Shop ${product.name}, handmade by The Happy Knots.`).slice(0, 160);
@@ -66,10 +71,11 @@ export function seoFor(pathname, data = {}) {
 
 export const organizationSchema = () => ({
   '@type': 'Organization', '@id': `${SITE_URL}/#organization`, name: SITE_NAME, alternateName: 'Happy Knots', url: SITE_URL,
-  logo: { '@type': 'ImageObject', url: `${SITE_URL}/static/assets/happy-knots-logo.png` },
+  logo: { '@type': 'ImageObject', url: `${SITE_URL}/static/assets/happy-knots-logo.webp` },
   founder: { '@type': 'Person', name: 'Rakhi Dixit' },
   sameAs: [INSTAGRAM_URL],
-  contactPoint: { '@type': 'ContactPoint', email: CONTACT_EMAIL, contactType: 'customer service', areaServed: 'IN', availableLanguage: ['English', 'Hindi'] }
+  contactPoint: { '@type': 'ContactPoint', email: CONTACT_EMAIL, contactType: 'customer service', areaServed: 'IN', availableLanguage: ['English', 'Hindi'] },
+  hasMerchantReturnPolicy: { '@type': 'MerchantReturnPolicy', '@id': `${SITE_URL}/#organization-return-policy`, applicableCountry: 'IN', returnPolicyCategory: 'https://schema.org/MerchantReturnNotPermitted', merchantReturnLink: `${SITE_URL}/returns` }
 });
 
 export const websiteSchema = () => ({
@@ -86,6 +92,7 @@ export const productSchema = (product, reviewData = {}) => ({
   '@type': 'Product', '@id': `${SITE_URL}/products/${product.id}#product`, name: product.name,
   description: product.description, image: (product.images?.length ? product.images : [product.image]).filter(Boolean).map(absoluteUrl),
   category: product.tags?.[0] || 'Handmade crochet', sku: product.sku || `HK-${product.id}`,
+  color: (product.variants || []).map(item => item.label).filter(Boolean), material: 'Crochet yarn',
   brand: { '@type': 'Brand', name: SITE_NAME },
   ...(reviewData.summary?.count ? {
     aggregateRating: { '@type': 'AggregateRating', ratingValue: reviewData.summary.average, reviewCount: reviewData.summary.count, bestRating: 5, worstRating: 1 },
@@ -95,8 +102,8 @@ export const productSchema = (product, reviewData = {}) => ({
     '@type': 'Offer', url: `${SITE_URL}/products/${product.id}`, priceCurrency: 'INR',
     price: (Number(product.price_paise || 0) / 100).toFixed(2),
     availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-    itemCondition: 'https://schema.org/NewCondition', seller: { '@id': `${SITE_URL}/#organization` },
-    shippingDetails: { '@type': 'OfferShippingDetails', shippingDestination: { '@type': 'DefinedRegion', addressCountry: 'IN' }, deliveryTime: { '@type': 'ShippingDeliveryTime', handlingTime: { '@type': 'QuantitativeValue', minValue: 7, maxValue: 12, unitCode: 'DAY' }, transitTime: { '@type': 'QuantitativeValue', minValue: 3, maxValue: 3, unitCode: 'DAY' } } }
+    itemCondition: 'https://schema.org/NewCondition', seller: { '@id': `${SITE_URL}/#organization` }, priceValidUntil: '2027-12-31', hasMerchantReturnPolicy: { '@id': `${SITE_URL}/#organization-return-policy` },
+    shippingDetails: { '@type': 'OfferShippingDetails', shippingRate: { '@type': 'MonetaryAmount', value: '80.00', currency: 'INR' }, shippingDestination: { '@type': 'DefinedRegion', addressCountry: 'IN' }, deliveryTime: { '@type': 'ShippingDeliveryTime', handlingTime: { '@type': 'QuantitativeValue', minValue: 7, maxValue: 12, unitCode: 'DAY' }, transitTime: { '@type': 'QuantitativeValue', minValue: 3, maxValue: 3, unitCode: 'DAY' } } }
   }
 });
 
@@ -114,7 +121,7 @@ export function robotsText() {
 }
 
 export function sitemapXml(products) {
-  const pages = ['/', '/shop', '/about', '/contact', '/shipping', '/returns', '/privacy', '/terms'];
+  const pages = ['/', '/shop', '/about', JOURNAL_PATH, '/contact', '/shipping', '/returns', '/privacy', '/terms'];
   const entries = [...pages.map(path => ({ loc: `${SITE_URL}${path}`, priority: path === '/' ? '1.0' : path === '/shop' ? '0.9' : '0.6' })), ...products.map(product => ({ loc: `${SITE_URL}/products/${product.id}`, priority: '0.8' }))];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.map(entry => `  <url><loc>${xml(entry.loc)}</loc><lastmod>${SITE_UPDATED}</lastmod><changefreq>weekly</changefreq><priority>${entry.priority}</priority></url>`).join('\n')}\n</urlset>\n`;
 }
@@ -122,6 +129,18 @@ export function sitemapXml(products) {
 export function rssXml(products) {
   const items = products.slice(0, 20).map(product => `<item><title>${xml(product.name)}</title><link>${SITE_URL}/products/${product.id}</link><guid>${SITE_URL}/products/${product.id}</guid><description>${xml(product.description)}</description><pubDate>${new Date(`${SITE_UPDATED}T00:00:00Z`).toUTCString()}</pubDate></item>`).join('');
   return `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>${SITE_NAME}</title><link>${SITE_URL}</link><description>${xml(SITE_DESCRIPTION)}</description><language>en-IN</language>${items}</channel></rss>`;
+}
+
+export function googleProductsXml(products) {
+  const items = products.flatMap(product => {
+    const variants = product.variants?.length ? product.variants : [{ code: 'default', label: '', image: product.image, price_paise: product.price_paise }];
+    return variants.map(variant => {
+      const sku = product.sku || `HK-${product.id}`;
+      const title = variant.label ? `${product.name} – ${variant.label}` : product.name;
+      return `<item><g:id>${xml(`${sku}-${variant.code}`)}</g:id><g:item_group_id>${xml(sku)}</g:item_group_id><title>${xml(title)}</title><description>${xml(product.description)}</description><link>${SITE_URL}/products/${product.id}</link><g:image_link>${xml(absoluteUrl(variant.image || product.image))}</g:image_link><g:availability>${product.stock > 0 ? 'in_stock' : 'out_of_stock'}</g:availability><g:price>${(Number(variant.price_paise || product.price_paise) / 100).toFixed(2)} INR</g:price><g:condition>new</g:condition><g:brand>${SITE_NAME}</g:brand><g:identifier_exists>no</g:identifier_exists><g:product_type>${xml(product.tags?.[0] || 'Handmade crochet')}</g:product_type>${variant.label ? `<g:color>${xml(variant.label)}</g:color>` : ''}<g:shipping><g:country>IN</g:country><g:service>Standard</g:service><g:price>80.00 INR</g:price></g:shipping></item>`;
+    });
+  }).join('');
+  return `<?xml version="1.0" encoding="UTF-8"?><rss xmlns:g="http://base.google.com/ns/1.0" version="2.0"><channel><title>${SITE_NAME} product feed</title><link>${SITE_URL}</link><description>${xml(SITE_DESCRIPTION)}</description>${items}</channel></rss>`;
 }
 
 export function llmsText(products, full = false) {

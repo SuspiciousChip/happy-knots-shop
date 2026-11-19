@@ -4,6 +4,7 @@ import {
   SITE_URL,
   breadcrumbSchema,
   faqSchema,
+  googleProductsXml,
   llmsText,
   organizationSchema,
   productSchema,
@@ -78,4 +79,13 @@ test('llms file contains identity, policies and catalogue facts', () => {
   assert.match(content, /10–15 days/);
   assert.match(content, /Crochet Lotus Tealight Holders/);
   assert.match(content, /Frequently asked questions/);
+});
+
+test('Google product feed exposes merchant-ready product data', () => {
+  const feed = googleProductsXml([product]);
+  assert.match(feed, /xmlns:g="http:\/\/base\.google\.com\/ns\/1\.0"/);
+  assert.match(feed, /<g:id>HK-lotus-holder-default<\/g:id>/);
+  assert.match(feed, /<g:price>899\.00 INR<\/g:price>/);
+  assert.match(feed, /<g:availability>in_stock<\/g:availability>/);
+  assert.match(feed, /lotus\.webp/);
 });

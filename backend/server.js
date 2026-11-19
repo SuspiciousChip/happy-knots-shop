@@ -24,7 +24,7 @@ import { orderAnalytics } from './analytics.js';
 import { decryptValue, encryptValue } from './secure-data.js';
 import { generateTotpSecret, totpUri, verifyTotp } from './owner-mfa.js';
 import { reviewDraft, reviewerDisplayName, reviewSummary } from './reviews.js';
-import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, SITE_UPDATED, CONTACT_EMAIL, FAQS, seoFor, organizationSchema, websiteSchema, faqSchema, productSchema, breadcrumbSchema, robotsText, sitemapXml, rssXml, llmsText } from './seo.js';
+import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, SITE_UPDATED, CONTACT_EMAIL, FAQS, JOURNAL_PATH, seoFor, organizationSchema, websiteSchema, faqSchema, productSchema, breadcrumbSchema, robotsText, sitemapXml, rssXml, googleProductsXml, llmsText } from './seo.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(root, '..');
@@ -257,6 +257,10 @@ app.get('/feed.xml', wrap(async (_req, res) => {
   const listing = (await catalog()).map(publicProduct);
   res.type('application/rss+xml').set('Cache-Control', 'public, max-age=3600').send(rssXml(listing));
 }));
+app.get('/google-products.xml', wrap(async (_req, res) => {
+  const listing = (await catalog()).map(publicProduct);
+  res.type('application/xml').set({ 'Cache-Control': 'public, max-age=3600', 'X-Content-Type-Options': 'nosniff' }).send(googleProductsXml(listing));
+}));
 app.get(['/llms.txt', '/llms-full.txt'], wrap(async (req, res) => {
   const listing = (await catalog()).map(publicProduct);
   res.type('text/plain').set('Cache-Control', 'public, max-age=3600').send(llmsText(listing, req.path === '/llms-full.txt'));
@@ -290,6 +294,7 @@ app.get('/terms', (_req, res) => render(res, 'terms.html'));
 app.get('/privacy', (_req, res) => render(res, 'privacy.html'));
 app.get('/shipping', (_req, res) => render(res, 'shipping.html'));
 app.get('/returns', (_req, res) => render(res, 'returns.html'));
+app.get(JOURNAL_PATH, (_req, res) => render(res, 'gift_guide.html', { structured_data: schemaGraph(organizationSchema(), { '@type': 'Article', headline: 'Handmade Crochet Gift Guide for Every Occasion', description: 'A practical guide to choosing handmade crochet gifts in India.', image: `${SITE_URL}/static/assets/featured/lotus-crochet-flowers.webp`, author: { '@type': 'Person', name: 'Rakhi Dixit' }, publisher: { '@id': `${SITE_URL}/#organization` }, datePublished: SITE_UPDATED, dateModified: SITE_UPDATED, mainEntityOfPage: `${SITE_URL}${JOURNAL_PATH}` }) }));
 app.get('/shop', wrap(async (req, res) => {
   const listing = (await catalog()).map(publicProduct);
   const tag = tagNames.includes(req.query.category) ? req.query.category : null;
@@ -666,7 +671,7 @@ app.post('/owner/reviews/:id/status', ownerOnly, csrf, wrap(async (req, res) => 
 }));
 app.post('/owner/products', ownerOnly, express.json({ limit: '28mb' }), csrf, wrap(async (req, res) => {
   const draft = ownerProductDraft(req.body, tagNames);
-  if (!draft) return errorPage(res, 'Check the product details', 'Add 1–4 valid JPG, PNG or WebP images under 5 MB each. The regular price must be higher than the selling price.', 400);
+  if (!draft) return errorPage(res, 'Check the product details', 'Add 1–4 images under 5 MB each. Images are automatically converted to WebP. The regular price must be higher than the selling price.', 400);
   const imageIds = [];
   try {
     for (const [index, image] of draft.images.entries()) imageIds.push(await storeProductImage(image, `product-${Date.now()}-${index}`));
@@ -712,7 +717,7 @@ app.post('/owner/products/:id', ownerOnly, express.json({ limit: '28mb' }), csrf
   if (!Number.isSafeInteger(Number(req.body.version)) || Number(req.body.version) !== existing.version)
     return errorPage(res, 'Product changed', 'This product was updated in another owner session. Reload the edit page before saving again.', 409);
   const draft = ownerProductUpdateDraft(req.body, tagNames);
-  if (!draft) return errorPage(res, 'Check the product details', 'Use valid prices, tags and colours. If replacing images, upload 1–4 valid JPG, PNG or WebP files under 5 MB each.', 400);
+  if (!draft) return errorPage(res, 'Check the product details', 'Use valid prices, tags and colours. Replacement images are automatically converted to WebP and must remain under 5 MB each.', 400);
   const newImageIds = [];
   try {
     for (const [index, image] of draft.images.entries()) newImageIds.push(await storeProductImage(image, `product-${id}-update-${Date.now()}-${index}`));

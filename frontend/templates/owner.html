@@ -38,7 +38,7 @@
         <label class="owner-product-wide">Search tags <span class="optional">(optional)</span><input name="tags" maxlength="300" placeholder="bouquet, flower, gift"><small>Separate up to 10 tags with commas.</small></label>
         <label class="owner-product-wide">Available colours <span class="optional">(optional)</span><input name="colors" maxlength="500" placeholder="Red, Blue, Olive Green"><small>Separate up to 12 colours with commas. Upload one image per colour in the same order to make the product image change with the selection; otherwise the cover image is used.</small></label>
         <label class="owner-product-wide">Description<textarea name="description" required minlength="20" maxlength="2000" placeholder="Describe the materials, colours and what the customer receives."></textarea></label>
-        <label class="owner-product-wide">Product images<input id="ownerProductImages" name="image_files" type="file" accept="image/jpeg,image/png,image/webp" multiple required><small>Upload 1–4 JPG, PNG or WebP images, maximum 5 MB each. The first image becomes the cover.</small></label>
+        <label class="owner-product-wide">Product images<input id="ownerProductImages" name="image_files" type="file" accept="image/jpeg,image/png,image/webp" multiple required><small>Upload 1–4 images, maximum 5 MB each. Every image is converted to an optimised WebP before upload; the first becomes the cover.</small></label>
         <div class="owner-image-previews" id="ownerImagePreviews" aria-live="polite"></div>
         <div class="owner-product-actions"><button class="button" id="ownerProductSubmit">List product</button><p id="ownerProductMessage" role="status"></p></div>
       </form>

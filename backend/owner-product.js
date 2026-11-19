@@ -1,6 +1,4 @@
 const IMAGE_TYPES = {
-  'image/jpeg': buffer => buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff,
-  'image/png': buffer => buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),
   'image/webp': buffer => buffer.length >= 12 && buffer.subarray(0, 4).toString() === 'RIFF' && buffer.subarray(8, 12).toString() === 'WEBP'
 };
 
@@ -18,7 +16,7 @@ function pricePaise(value) {
 
 export function decodeProductImage(value) {
   if (typeof value !== 'string') return null;
-  const match = value.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/);
+  const match = value.match(/^data:(image\/webp);base64,([A-Za-z0-9+/]+={0,2})$/);
   if (!match) return null;
   const buffer = Buffer.from(match[2], 'base64');
   if (!buffer.length || buffer.length > 5 * 1024 * 1024 || !IMAGE_TYPES[match[1]]?.(buffer)) return null;

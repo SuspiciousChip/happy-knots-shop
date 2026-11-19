@@ -23,7 +23,7 @@
         <label class="owner-product-wide">Available colours <span class="optional">(optional)</span><input name="colors" maxlength="500" value="{{ colours }}" placeholder="Red, Blue, Olive Green"><small>Keep the colour order aligned with the image order.</small></label>
         <label class="owner-product-wide">Description<textarea name="description" required minlength="20" maxlength="2000">{{ product.description }}</textarea></label>
         <div class="owner-product-wide owner-current-images"><span>Current images</span><div class="owner-image-previews">{% for image in product.images %}<figure><img src="{{ image }}" alt=""><figcaption>{{ 'Cover image' if loop.first else 'Image ' + loop.index|string }}</figcaption></figure>{% endfor %}</div></div>
-        <label class="owner-product-wide">Replace product images <span class="optional">(optional)</span><input id="ownerEditImages" name="image_files" type="file" accept="image/jpeg,image/png,image/webp" multiple><small>Choose 1–4 new images to replace the complete gallery. Leave this empty to keep the current images.</small></label>
+        <label class="owner-product-wide">Replace product images <span class="optional">(optional)</span><input id="ownerEditImages" name="image_files" type="file" accept="image/jpeg,image/png,image/webp" multiple><small>Choose 1–4 new images to replace the gallery. They are optimised and converted to WebP automatically. Leave empty to keep the current images.</small></label>
         <div class="owner-image-previews" id="ownerEditImagePreviews" aria-live="polite"></div>
         <div class="owner-product-actions"><button class="button" id="ownerProductEditSubmit">Save changes</button><p id="ownerProductEditMessage" role="status"></p></div>
       </form>
