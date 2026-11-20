@@ -290,6 +290,28 @@ async function publishInitialCatalog() {
         }
         await migration.insertOne({ _id: keywordMarker, state: 'READY', created_at: now() }, { session: transaction });
       }
+      const seoCopyMarker = 'catalog-seo-copy-2026-11-20';
+      if (!await migration.findOne({ _id: seoCopyMarker }, { session: transaction })) {
+        const updates = [
+          ["rust-crochet-sling-bag", "Handmade crochet sling bag with a front flap and long strap. Choose a colour.", "This handmade crochet sling bag has a front flap and a long crossbody strap. Choose your colour for an everyday crochet bag.", "crochet crossbody bag"],
+          ["pink-rose-crochet-bag", "Handmade crochet handbag with a floral motif and pearl detail. Choose a colour.", "A handmade crochet bag with a rose motif and pearl detail. Choose your colour for a floral crochet handbag.", "floral crochet bag"],
+          ["pink-crochet-lotus", "Handmade crochet lotus flowers. Choose a set of 2, 3, or 4.", "These handmade crochet flowers bring pink lotus blooms to a vase or festive display. Choose a set of 2, 3 or 4.", "pink crochet flowers"],
+          ["personalised-name-hanging", "Personalized handmade crochet name hanging. Enter the name you would like us to make.", "A personalised crochet wall hanging made by hand with the name you choose. Enter the name you’d like us to make.", "personalised crochet wall hanging"],
+          ["crochet-mandala", "Handmade colorful crochet mandala. Designs and colors may vary.", "A colourful crochet wall hanging featuring a handmade mandala. The design and colours may vary from piece to piece.", "crochet wall hanging"],
+          ["pink-pearl-crochet-handbag", "Handmade crochet handbag with pearl-chain detail. Photos show different views and shades.", "This pink crochet purse is handmade with a pearl-chain detail. The photos show different views and shades of the crochet handbag.", "pink crochet purse"],
+          ["white-crochet-lily-bouquet", "Handmade bouquet of white crochet lilies with green leaves.", "A handmade crochet flower bouquet of white lilies with green leaves. Give the yarn flowers as a keepsake or display them in a vase.", "crochet flower bouquet"],
+          ["shubh-lotus-door-hanging", "Handmade lotus crochet door hanging with Shubh lettering, beads, and hanging flowers.", "A handmade crochet door hanging with Shubh lettering, beads and dangling lotus flowers. Hang it at your entrance for a festive welcome.", "lotus crochet door hanging"],
+          ["floral-crochet-toran", "Handmade floral crochet door toran with pink, cream and gold details.", "This handmade crochet flower door hanging is a toran with pink, cream and gold details for a festive doorway.", "crochet flower door hanging"],
+        ];
+        for (const [sku, previousDescription, description, keyword] of updates) {
+          await products.updateOne(
+            { sku, active: 1, description: previousDescription },
+            { $set: { description }, $addToSet: { keywords: keyword }, $inc: { version: 1 } },
+            { session: transaction }
+          );
+        }
+        await migration.insertOne({ _id: seoCopyMarker, state: 'READY', created_at: now() }, { session: transaction });
+      }
     });
   } finally { await transaction.endSession(); }
 }
