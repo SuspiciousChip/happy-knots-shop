@@ -133,8 +133,8 @@
     ],
     "price_paise": 99900,
     "compare_at_paise": 129900,
-    "description": "Handmade crochet sling bag with a front flap and long strap. Choose a colour.",
-    "keywords": ["made to order crochet bag India", "handmade crochet sling bag", "colourful yarn crossbody bag"],
+    "description": "This handmade crochet sling bag has a front flap and a long crossbody strap. Choose your colour for an everyday crochet bag.",
+    "keywords": ["made to order crochet bag India", "handmade crochet sling bag", "colourful yarn crossbody bag", "crochet crossbody bag"],
     "style_options": [
       {
         "code": "rust",
@@ -171,8 +171,8 @@
     ],
     "price_paise": 149900,
     "compare_at_paise": 199900,
-    "description": "Handmade crochet handbag with a floral motif and pearl detail. Choose a colour.",
-    "keywords": ["handmade flower handbag India", "pearl chain crochet bag", "rose motif yarn handbag"],
+    "description": "A handmade crochet bag with a rose motif and pearl detail. Choose your colour for a floral crochet handbag.",
+    "keywords": ["handmade flower handbag India", "pearl chain crochet bag", "rose motif yarn handbag", "floral crochet bag"],
     "style_options": [
       {
         "code": "pink",
@@ -252,8 +252,8 @@
     ],
     "price_paise": 49900,
     "compare_at_paise": 69900,
-    "description": "Handmade crochet lotus flowers. Choose a set of 2, 3, or 4.",
-    "keywords": ["crochet lotus flower set", "handmade lotus flowers India", "everlasting yarn flower decor"],
+    "description": "These handmade crochet flowers bring pink lotus blooms to a vase or festive display. Choose a set of 2, 3 or 4.",
+    "keywords": ["crochet lotus flower set", "handmade lotus flowers India", "everlasting yarn flower decor", "pink crochet flowers"],
     "price_options": [
       {
         "code": "set-2",
@@ -306,8 +306,8 @@
     ],
     "price_paise": 119900,
     "compare_at_paise": 229900,
-    "description": "Personalized handmade crochet name hanging. Enter the name you would like us to make.",
-    "keywords": ["personalised crochet name hanging India", "custom name door hanging", "handmade nursery name sign"],
+    "description": "A personalised crochet wall hanging made by hand with the name you choose. Enter the name you’d like us to make.",
+    "keywords": ["personalised crochet name hanging India", "custom name door hanging", "handmade nursery name sign", "personalised crochet wall hanging"],
     "badge": "New launch",
     "personalisation": {
       "label": "Name for the hanging"
@@ -326,8 +326,8 @@
     ],
     "price_paise": 169900,
     "compare_at_paise": 219900,
-    "description": "Handmade colorful crochet mandala. Designs and colors may vary.",
-    "keywords": ["handmade crochet mandala India", "colourful yarn wall decor", "round fibre art decor"],
+    "description": "A colourful crochet wall hanging featuring a handmade mandala. The design and colours may vary from piece to piece.",
+    "keywords": ["handmade crochet mandala India", "colourful yarn wall decor", "round fibre art decor", "crochet wall hanging"],
     "images": [
       "/static/assets/products/crochet-mandala-1.webp"
     ],
@@ -344,8 +344,8 @@
     ],
     "price_paise": 229900,
     "compare_at_paise": 279900,
-    "description": "Handmade crochet handbag with pearl-chain detail. Photos show different views and shades.",
-    "keywords": ["pearl crochet handbag India", "handmade pink yarn bag", "pearl chain handmade purse"],
+    "description": "This pink crochet purse is handmade with a pearl-chain detail. The photos show different views and shades of the crochet handbag.",
+    "keywords": ["pearl crochet handbag India", "handmade pink yarn bag", "pearl chain handmade purse", "pink crochet purse"],
     "images": [
       "/static/assets/products/pink-pearl-crochet-handbag-1.webp",
       "/static/assets/products/pink-pearl-crochet-handbag-2.webp",
@@ -363,8 +363,8 @@
     ],
     "price_paise": 79900,
     "compare_at_paise": 119900,
-    "description": "Handmade bouquet of white crochet lilies with green leaves.",
-    "keywords": ["crochet lily bouquet gift India", "white handmade flower bouquet", "everlasting lily bouquet"],
+    "description": "A handmade crochet flower bouquet of white lilies with green leaves. Give the yarn flowers as a keepsake or display them in a vase.",
+    "keywords": ["crochet lily bouquet gift India", "white handmade flower bouquet", "everlasting lily bouquet", "crochet flower bouquet"],
     "images": [
       "/static/assets/products/white-crochet-lily-bouquet-1.webp",
       "/static/assets/products/white-crochet-lily-bouquet-2.webp"
@@ -380,8 +380,8 @@
     ],
     "price_paise": 49900,
     "compare_at_paise": 79900,
-    "description": "Handmade lotus crochet door hanging with Shubh lettering, beads, and hanging flowers.",
-    "keywords": ["Shubh lotus door hanging", "handmade festive door decor India", "lotus wall hanging"],
+    "description": "A handmade crochet door hanging with Shubh lettering, beads and dangling lotus flowers. Hang it at your entrance for a festive welcome.",
+    "keywords": ["Shubh lotus door hanging", "handmade festive door decor India", "lotus wall hanging", "lotus crochet door hanging"],
     "images": [
       "/static/assets/products/shubh-lotus-door-hanging-1.webp"
     ],
@@ -399,8 +399,8 @@
     "images": [
       "/static/assets/products/floral-crochet-toran-1.webp"
     ],
-    "description": "Handmade floral crochet door toran with pink, cream and gold details.",
-    "keywords": ["handmade crochet toran for door", "floral door toran India", "pink cream festive door hanging"],
+    "description": "This handmade crochet flower door hanging is a toran with pink, cream and gold details for a festive doorway.",
+    "keywords": ["handmade crochet toran for door", "floral door toran India", "pink cream festive door hanging", "crochet flower door hanging"],
     "made_to_order": true
   },
   {

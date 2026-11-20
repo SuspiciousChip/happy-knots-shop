@@ -19,15 +19,15 @@ const xml = value => String(value ?? '').replace(/[<>&"']/g, character => ({ '<'
 export function seoFor(pathname, data = {}) {
   const privatePage = /^(?:\/account|\/checkout|\/owner|\/payments|\/orders)(?:\/|$)/.test(pathname);
   const product = data.product;
-  let title = 'The Happy Knots | Handmade Crochet Gifts & Decor';
+  let title = 'The Happy Knots | Handmade Crochet Gifts in India';
   let description = SITE_DESCRIPTION;
   let canonicalPath = pathname === '/' ? '/' : pathname.replace(/\/$/, '');
   let type = 'website';
   let image = '/static/assets/featured/pink-crochet-bag.webp';
 
   if (pathname === '/shop') {
-    title = 'Shop Handmade Crochet Products | The Happy Knots';
-    description = 'Browse made-to-order crochet bags, rakhi, yarn flower bouquets, door torans, accessories and handmade home decor by Rakhi Dixit.';
+    title = 'Online Crochet Shop in India | The Happy Knots';
+    description = 'Shop handmade crochet bags, flower bouquets, wall hangings and door torans by Rakhi Dixit, made to order and delivered across India.';
   } else if (pathname === '/about') {
     title = 'Our Story | The Happy Knots';
     description = 'Meet Rakhi Dixit, the maker and founder of The Happy Knots, and Aryan Dixit, who leads the handmade crochet shop online.';
@@ -79,7 +79,7 @@ export const organizationSchema = () => ({
 });
 
 export const websiteSchema = () => ({
-  '@type': 'WebSite', '@id': `${SITE_URL}/#website`, url: SITE_URL, name: SITE_NAME, alternateName: 'Happy Knots',
+  '@type': 'WebSite', '@id': `${SITE_URL}/#website`, url: `${SITE_URL}/`, name: SITE_NAME, alternateName: 'Happy Knots',
   description: SITE_DESCRIPTION, publisher: { '@id': `${SITE_URL}/#organization` }, dateModified: SITE_UPDATED,
   potentialAction: { '@type': 'SearchAction', target: `${SITE_URL}/shop?q={search_term_string}`, 'query-input': 'required name=search_term_string' }
 });
